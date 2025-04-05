@@ -1,0 +1,80 @@
+import mysql from "mysql2/promise";
+import { createEmbedding } from "./embeddings";
+
+const connectionString =
+  "mysql://fshb9iaQu4cdnQo.root:xCR2R46xlkZAfNdy@gateway01.ap-southeast-1.prod.aws.tidbcloud.com:4000/test";
+
+export async function connectDB() {
+  try {
+    const connection = await mysql.createConnection({
+      host: "gateway01.ap-southeast-1.prod.aws.tidbcloud.com",
+      port: 4000,
+      user: "fshb9iaQu4cdnQo.root",
+      password: "xCR2R46xlkZAfNdy",
+      database: "vector_db",
+      ssl: {
+        rejectUnauthorized: false,
+      },
+    });
+    return connection;
+  } catch (error) {
+    console.error("Failed to connect to TiDB:", error);
+    throw error;
+  }
+}
+
+// ทดสอบการเชื่อมต่อ
+export async function testConnection() {
+  try {
+    const conn = await connectDB();
+    const [rows] = await conn.execute("SELECT 1");
+    console.log("Test query result:", rows);
+    await conn.end();
+    return true;
+  } catch (error) {
+    console.error("Connection test failed:", error);
+    return false;
+  }
+}
+
+// ฟังก์ชันค้นหาข้อมูลจาก vector database
+export async function queryTiDB(connection: any, queryText: string, k = 5) {
+  try {
+    // แปลงข้อความเป็น embedding vector
+    const queryEmbedding = await createEmbedding(queryText);
+
+    // สร้าง SQL query แบบ string interpolation เหมือนในโค้ด Python
+    const sql_query = `
+      SELECT document, vec_cosine_distance(embedding, '${queryEmbedding}') AS distance
+      FROM documents
+      ORDER BY distance
+      LIMIT ${k}
+    `;
+
+    // ใช้ execute แบบไม่มี parameterized query
+    const [rows] = await connection.execute(sql_query);
+    return rows;
+  } catch (error) {
+    console.error("Query error:", error);
+    return [];
+  }
+}
+
+// ฟังก์ชันเพิ่มเอกสารพร้อม embedding
+export async function addDocument(connection: any, text: string) {
+  try {
+    // สร้าง embedding vector
+    const embedding = await createEmbedding(text);
+
+    // เพิ่มข้อมูลลงในฐานข้อมูล
+    const [result] = await connection.execute(
+      "INSERT INTO documents (document, embedding) VALUES (?, ?)",
+      [text, embedding]
+    );
+
+    return result.insertId;
+  } catch (error) {
+    console.error("Error adding document:", error);
+    throw error;
+  }
+}
