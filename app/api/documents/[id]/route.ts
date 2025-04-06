@@ -6,12 +6,10 @@ export async function DELETE(
   { params }: { params: { id: string } }
 ) {
   try {
-    // รอให้ params พร้อมใช้งาน
     const id = await Promise.resolve(params.id);
 
     const connection = await connectDB();
 
-    // ลบเอกสารจากฐานข้อมูล
     const [result] = await connection.execute(
       "DELETE FROM documents WHERE id = ?",
       [id]
@@ -19,7 +17,6 @@ export async function DELETE(
 
     await connection.end();
 
-    // ตรวจสอบว่ามีการลบข้อมูลจริงหรือไม่
     const deletedRows = (result as any).affectedRows;
     if (deletedRows === 0) {
       return NextResponse.json(

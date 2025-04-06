@@ -7,7 +7,16 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Card } from "@/components/ui/card";
-import { Send, Key, Clock, Database, Plus, Trash2 } from "lucide-react";
+import {
+  Send,
+  Key,
+  Clock,
+  Database,
+  Plus,
+  Trash2,
+  Eraser,
+  RotateCcw,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { th } from "date-fns/locale";
@@ -29,6 +38,10 @@ interface KnowledgeItem {
   timestamp: Date;
 }
 
+const generateId = () => {
+  return Math.random().toString(36).substring(2) + Date.now().toString(36);
+};
+
 export default function ChatbotPage() {
   const [apiKey, setApiKey] = useState("");
   const [showApiKeyInput, setShowApiKeyInput] = useState(false);
@@ -47,21 +60,45 @@ export default function ChatbotPage() {
   const ITEMS_PER_PAGE = 10;
   const observerTarget = useRef<HTMLDivElement>(null);
   const [isDeleting, setIsDeleting] = useState<number | null>(null);
+  const [chatMode, setChatMode] = useState<"gemini" | "rag">("rag");
+  const [geminiMessages, setGeminiMessages] = useState<Message[]>([]);
+  const [ragMessages, setRagMessages] = useState<Message[]>([]);
 
-  // Load API key from localStorage on component mount
+  // แยก welcome message สำหรับแต่ละโหมด
+  const geminiWelcomeMessage: Message = {
+    id: generateId(),
+    role: "assistant",
+    content: `สวัสดีค่ะ ฉันชื่อมะขาม 😊 
+
+ในโหมด Gemini นี้ เราสามารถคุยกันได้อย่างอิสระเลยนะคะ มะขามพร้อมตอบทุกคำถามค่ะ!`,
+    createdAt: new Date(),
+  };
+
+  const ragWelcomeMessage: Message = {
+    id: generateId(),
+    role: "assistant",
+    content: `สวัสดีค่ะ ฉันชื่อน้อยหน่า จาก Just Easy 😊 
+
+ในโหมด Gemini + RAG นี้ น้อยหน่าจะตอบคำถามตามข้อมูลที่มีในฐานข้อมูลนะคะ สามารถเพิ่มข้อมูลได้ที่แท็บ "ฐานข้อมูล" เลยค่ะ`,
+    createdAt: new Date(),
+  };
+
+  // ปรับ useEffect สำหรับ welcome message
   useEffect(() => {
     const savedApiKey = localStorage.getItem("gemini_api_key");
     if (savedApiKey) {
       setApiKey(savedApiKey);
     }
+
+    // เพิ่ม welcome message แยกตามโหมด
+    setGeminiMessages([geminiWelcomeMessage]);
+    setRagMessages([ragWelcomeMessage]);
   }, []);
 
-  // Load knowledge base on component mount
   useEffect(() => {
     fetchKnowledgeBase();
   }, []);
 
-  // Fetch knowledge base
   const fetchKnowledgeBase = async (pageNumber = 1) => {
     try {
       setIsLoadingMore(true);
@@ -100,13 +137,8 @@ export default function ChatbotPage() {
     return format(bkkTime, "dd MMM yyyy, HH:mm", { locale: th });
   };
 
-  const generateId = () => {
-    return Math.random().toString(36).substring(2) + Date.now().toString(36);
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-
     if (!input.trim()) return;
 
     const userMessage: Message = {
@@ -116,41 +148,45 @@ export default function ChatbotPage() {
       createdAt: new Date(),
     };
 
-    setMessages((prev) => [...prev, userMessage]);
+    // เพิ่มข้อความผู้ใช้ไปยัง state ที่เหมาะสม
+    if (chatMode === "gemini") {
+      setGeminiMessages((prev) => [...prev, userMessage]);
+    } else {
+      setRagMessages((prev) => [...prev, userMessage]);
+    }
+
     setInput("");
     setIsLoading(true);
 
     try {
-      // Call the chat API
       const response = await fetch("/api/chat", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          messages: [...messages, userMessage],
-          apiKey: apiKey || undefined, // Send API key if available
+          message: input,
+          apiKey: apiKey || undefined,
+          mode: chatMode,
         }),
       });
 
-      if (!response.ok) {
-        throw new Error("Failed to get response");
-      }
+      if (!response.ok) throw new Error("Failed to get response");
 
       const data = await response.json();
-
-      // Add assistant message to chat
       const assistantMessage: Message = {
         id: generateId(),
         role: "assistant",
         content: data.content,
-        createdAt: new Date(data.createdAt),
+        createdAt: new Date(),
       };
 
-      setMessages((prev) => [...prev, assistantMessage]);
+      // เพิ่มข้อความ AI ไปยัง state ที่เหมาะสม
+      if (chatMode === "gemini") {
+        setGeminiMessages((prev) => [...prev, assistantMessage]);
+      } else {
+        setRagMessages((prev) => [...prev, assistantMessage]);
+      }
     } catch (error) {
-      console.error("Error sending message:", error);
-      // Add error message
+      console.error("Error:", error);
       const errorMessage: Message = {
         id: generateId(),
         role: "assistant",
@@ -159,7 +195,11 @@ export default function ChatbotPage() {
         createdAt: new Date(),
       };
 
-      setMessages((prev) => [...prev, errorMessage]);
+      if (chatMode === "gemini") {
+        setGeminiMessages((prev) => [...prev, errorMessage]);
+      } else {
+        setRagMessages((prev) => [...prev, errorMessage]);
+      }
     } finally {
       setIsLoading(false);
     }
@@ -363,6 +403,15 @@ export default function ChatbotPage() {
     );
   };
 
+  // เพิ่มฟังก์ชัน clearHistory
+  const clearHistory = () => {
+    if (chatMode === "gemini") {
+      setGeminiMessages([geminiWelcomeMessage]);
+    } else {
+      setRagMessages([ragWelcomeMessage]);
+    }
+  };
+
   return (
     <div className="flex flex-col min-h-screen bg-gradient-to-br from-blue-50 to-purple-50">
       {/* Background decorative elements */}
@@ -374,10 +423,11 @@ export default function ChatbotPage() {
 
       <header className="py-6 px-8">
         <h1 className="text-2xl font-semibold text-center text-gray-800">
-          Just easy RAG Chat?
+          Just Easy Chat?
         </h1>
         <p className="text-center text-gray-500 mt-1">
-          latest data collection: {formatDate(latestDate)}
+          latest data collection:{" "}
+          {latestDate ? formatDate(latestDate) : "ยังไม่มีข้อมูล"}
         </p>
       </header>
 
@@ -416,51 +466,82 @@ export default function ChatbotPage() {
             )}
           >
             <div className="p-4 border-b border-white/10 bg-white/20">
-              <h2 className="text-lg font-medium text-gray-800">แชท</h2>
+              <div className="flex justify-between items-center">
+                <div>
+                  <h2 className="text-lg font-medium text-gray-800">แชท</h2>
+                  <p className="text-xs text-gray-500">
+                    Powered Gemini 2.0 flash
+                  </p>
+                </div>
+                <div className="flex gap-2 items-center">
+                  <div className="h-4 w-px bg-gray-200" /> {/* เส้นแบ่ง */}
+                  <Button
+                    variant={chatMode === "gemini" ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setChatMode("gemini")}
+                  >
+                    Gemini
+                  </Button>
+                  <Button
+                    variant={chatMode === "rag" ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setChatMode("rag")}
+                  >
+                    Gemini + RAG
+                  </Button>
+                </div>
+              </div>
             </div>
 
             <div className="flex-1 min-h-0 overflow-auto p-6">
               <div className="space-y-6">
-                {messages.length === 0 ? (
+                {(chatMode === "gemini" ? geminiMessages : ragMessages)
+                  .length === 0 ? (
                   <div className="text-center py-10">
-                    <p className="text-gray-400">เริ่มการสนทนากับ AI</p>
+                    <p className="text-gray-400">
+                      {chatMode === "gemini"
+                        ? "เริ่มการสนทนากับ Gemini"
+                        : "เริ่มการสนทนากับ Gemini + RAG"}
+                    </p>
                   </div>
                 ) : (
                   <>
-                    {messages.map((message) => (
-                      <div
-                        key={message.id}
-                        className={`flex ${
-                          message.role === "user"
-                            ? "justify-end"
-                            : "justify-start"
-                        }`}
-                      >
-                        <div className="max-w-[85%]">
-                          <div
-                            className={cn(
-                              "rounded-2xl p-4 shadow-sm",
-                              message.role === "user"
-                                ? "bg-blue-500/90 text-white rounded-tr-none"
-                                : "bg-white/40 backdrop-blur-sm text-gray-800 rounded-tl-none"
-                            )}
-                          >
-                            {message.content}
-                          </div>
-                          <div
-                            className={cn(
-                              "flex items-center text-xs mt-1 space-x-1",
-                              message.role === "user"
-                                ? "justify-end text-gray-500"
-                                : "justify-start text-gray-500"
-                            )}
-                          >
-                            <Clock className="h-3 w-3" />
-                            <span>{formatDate(message.createdAt)}</span>
+                    {(chatMode === "gemini" ? geminiMessages : ragMessages).map(
+                      (message) => (
+                        <div
+                          key={message.id}
+                          className={`flex ${
+                            message.role === "user"
+                              ? "justify-end"
+                              : "justify-start"
+                          }`}
+                        >
+                          <div className="max-w-[85%]">
+                            <div
+                              className={cn(
+                                "rounded-2xl p-4 shadow-sm",
+                                message.role === "user"
+                                  ? "bg-blue-500/90 text-white rounded-tr-none"
+                                  : "bg-white/40 backdrop-blur-sm text-gray-800 rounded-tl-none"
+                              )}
+                            >
+                              {message.content}
+                            </div>
+                            <div
+                              className={cn(
+                                "flex items-center text-xs mt-1 space-x-1",
+                                message.role === "user"
+                                  ? "justify-end text-gray-500"
+                                  : "justify-start text-gray-500"
+                              )}
+                            >
+                              <Clock className="h-3 w-3" />
+                              <span>{formatDate(message.createdAt)}</span>
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    ))}
+                      )
+                    )}
                     {isLoading && <ResponseMessageSkeleton />}
                   </>
                 )}
@@ -470,6 +551,15 @@ export default function ChatbotPage() {
 
             <div className="mt-auto p-4 bg-white/20 border-t border-white/10">
               <form onSubmit={handleSubmit} className="flex gap-2">
+                <Button
+                  type="button"
+                  size="icon"
+                  onClick={clearHistory}
+                  className="bg-red-100 hover:bg-red-200 text-red-600 hover:text-red-700 transition-colors"
+                  title="เริ่มการสนทนาใหม่"
+                >
+                  <RotateCcw className="h-4 w-4" />
+                </Button>
                 <Input
                   value={input}
                   onChange={(e) => setInput(e.target.value)}

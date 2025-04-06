@@ -1,32 +1,31 @@
-import { NextResponse } from "next/server"
-import { generateResponse } from "@/lib/gemini-api"
+import { generateResponse } from "@/lib/gemini-api";
 
-export async function POST(req: Request) {
+export async function POST(request: Request) {
   try {
-    const { messages, apiKey } = await req.json()
-
-    // Get the last user message
-    const lastUserMessage = messages.findLast((m: any) => m.role === "user")?.content || ""
+    const { message, apiKey, mode } = await request.json();
 
     // Generate response using Gemini API directly
-    const responseText = await generateResponse(lastUserMessage, apiKey)
+    const responseText = await generateResponse(message, apiKey, mode);
 
-    // Return the response
-    return NextResponse.json({
-      role: "assistant",
-      content: responseText,
-      createdAt: new Date().toISOString(),
-    })
-  } catch (error) {
-    console.error("Error in chat API:", error)
-    return NextResponse.json(
-      {
-        role: "assistant",
-        content: "ขออภัยค่ะ เกิดข้อผิดพลาดในการประมวลผล กรุณาลองใหม่อีกครั้งค่ะ 🙏",
+    return new Response(
+      JSON.stringify({
+        content: responseText,
         createdAt: new Date().toISOString(),
-      },
-      { status: 200 },
-    )
+      }),
+      {
+        headers: { "Content-Type": "application/json" },
+      }
+    );
+  } catch (error) {
+    console.error("Error in chat API:", error);
+    return new Response(
+      JSON.stringify({
+        error: "Failed to generate response",
+      }),
+      {
+        status: 500,
+        headers: { "Content-Type": "application/json" },
+      }
+    );
   }
 }
-
