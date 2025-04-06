@@ -1,23 +1,9 @@
 import { NextResponse } from "next/server";
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import { createEmbedding } from "@/lib/embeddings";
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
-
-export async function createEmbedding(text: string) {
+export async function POST(request: Request) {
   try {
-    const embeddingModel = genAI.getGenerativeModel({ model: "embedding-001" });
-    const result = await embeddingModel.embedContent(text);
-    const embedding = result.embedding.values;
-    return embedding;
-  } catch (error) {
-    console.error("Error creating embedding:", error);
-    throw error;
-  }
-}
-
-export async function POST(req: Request) {
-  try {
-    const { text } = await req.json();
+    const { text } = await request.json();
 
     if (!text) {
       return NextResponse.json({ error: "Text is required" }, { status: 400 });

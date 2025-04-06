@@ -417,16 +417,19 @@ export default function ChatbotPage() {
           <Trash2 className="h-6 w-6 text-white" />
         </div> */}
         {/* Swipeable content - ปรับความทึบของพื้นหลัง */}
-        <animated.div
-          {...bind()}
-          style={{
-            transform: x.to((x) => `translateX(${x}px)`),
-            touchAction: "pan-y",
+        <motion.div
+          drag="x"
+          dragConstraints={{ left: -200, right: 0 }}
+          onDragEnd={(event, info) => {
+            if (info.offset.x < -100 || info.velocity.x < -0.3) {
+              onDelete();
+            }
           }}
+          style={{ touchAction: "pan-y" }}
           className="relative bg-white/60 backdrop-blur-md rounded-lg shadow-sm"
         >
           <div className="group">{children}</div>
-        </animated.div>
+        </motion.div>
       </div>
     );
   };
