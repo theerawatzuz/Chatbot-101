@@ -1,12 +1,17 @@
 import { connectDB } from "@/lib/db";
 import { NextResponse } from "next/server";
 
-export async function DELETE(
-  request: Request,
-  { params }: { params: { id: string } }
-) {
+export async function DELETE(request: Request) {
   try {
-    const { id } = params;
+    const url = new URL(request.url);
+    const id = url.pathname.split("/").pop();
+
+    if (!id) {
+      return NextResponse.json(
+        { error: "ไม่พบ ID ของเอกสาร" },
+        { status: 400 }
+      );
+    }
 
     const connection = await connectDB();
 
