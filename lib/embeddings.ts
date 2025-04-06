@@ -1,6 +1,6 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
-const genAI = new GoogleGenerativeAI("AIzaSyByxhX3HBfudEfV65R2phYohSjbhBy1FFg");
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
 
 export async function createEmbedding(text: string) {
   try {
@@ -8,14 +8,17 @@ export async function createEmbedding(text: string) {
     const result = await embeddingModel.embedContent(text);
     let embedding = result.embedding.values;
 
-    // ปรับขนาด vector ให้เป็น 1024 มิติ
-    if (embedding.length < 1024) {
-      embedding = embedding.concat(new Array(1024 - embedding.length).fill(0));
-    } else if (embedding.length > 1024) {
-      embedding = embedding.slice(0, 1024);
-    }
+    if (embedding.length !== 1024) {
+      const normalizedEmbedding = new Array(1024).fill(0);
 
-    console.log("Vector size:", embedding.length); // debug
+      const step = embedding.length / 1024;
+      for (let i = 0; i < 1024; i++) {
+        const sourceIdx = Math.floor(i * step);
+        normalizedEmbedding[i] = embedding[sourceIdx];
+      }
+
+      embedding = normalizedEmbedding;
+    }
 
     return JSON.stringify(embedding);
   } catch (error) {

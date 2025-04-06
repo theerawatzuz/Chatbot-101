@@ -31,8 +31,11 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="th">
-      <body className={`${kanit.variable} ${inter.variable} font-kanit`}>
+    <html lang="th" suppressHydrationWarning>
+      <body
+        className={`${kanit.variable} ${inter.variable} font-kanit`}
+        suppressHydrationWarning
+      >
         <ThemeProvider
           attribute="class"
           defaultTheme="light"

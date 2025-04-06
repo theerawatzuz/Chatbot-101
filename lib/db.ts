@@ -1,17 +1,14 @@
 import mysql from "mysql2/promise";
 import { createEmbedding } from "./embeddings";
 
-const connectionString =
-  "mysql://fshb9iaQu4cdnQo.root:xCR2R46xlkZAfNdy@gateway01.ap-southeast-1.prod.aws.tidbcloud.com:4000/test";
-
 export async function connectDB() {
   try {
     const connection = await mysql.createConnection({
-      host: "gateway01.ap-southeast-1.prod.aws.tidbcloud.com",
-      port: 4000,
-      user: "fshb9iaQu4cdnQo.root",
-      password: "xCR2R46xlkZAfNdy",
-      database: "vector_db",
+      host: process.env.DB_HOST || "",
+      port: process.env.DB_PORT ? parseInt(process.env.DB_PORT) : 4000,
+      user: process.env.DB_USER || "",
+      password: process.env.DB_PASSWORD || "",
+      database: process.env.DB_NAME || "",
       ssl: {
         rejectUnauthorized: false,
       },
@@ -23,7 +20,7 @@ export async function connectDB() {
   }
 }
 
-// ทดสอบการเชื่อมต่อ
+// TEST CONNECTION
 export async function testConnection() {
   try {
     const conn = await connectDB();

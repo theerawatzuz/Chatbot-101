@@ -12,6 +12,9 @@ import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { th } from "date-fns/locale";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Skeleton } from "@/components/ui/skeleton";
+import { useSpring, animated } from "@react-spring/web";
+import { useDrag } from "@use-gesture/react";
 
 interface Message {
   id: string;
@@ -43,6 +46,7 @@ export default function ChatbotPage() {
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const ITEMS_PER_PAGE = 10;
   const observerTarget = useRef<HTMLDivElement>(null);
+  const [isDeleting, setIsDeleting] = useState<number | null>(null);
 
   // Load API key from localStorage on component mount
   useEffect(() => {
@@ -91,22 +95,22 @@ export default function ChatbotPage() {
   };
 
   const formatDate = (date: Date | string) => {
-    // แปลง string เป็น Date object ก่อนใช้งาน
     const dateObject = date instanceof Date ? date : new Date(date);
-    // force +7 ชั่วโมง (7 * 60 * 60 * 1000 milliseconds)
     const bkkTime = new Date(dateObject.getTime() + 7 * 60 * 60 * 1000);
     return format(bkkTime, "dd MMM yyyy, HH:mm", { locale: th });
   };
 
-  // Handle chat submission
+  const generateId = () => {
+    return Math.random().toString(36).substring(2) + Date.now().toString(36);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!input.trim()) return;
 
-    // Add user message to chat
     const userMessage: Message = {
-      id: crypto.randomUUID(),
+      id: generateId(),
       role: "user",
       content: input,
       createdAt: new Date(),
@@ -137,7 +141,7 @@ export default function ChatbotPage() {
 
       // Add assistant message to chat
       const assistantMessage: Message = {
-        id: crypto.randomUUID(),
+        id: generateId(),
         role: "assistant",
         content: data.content,
         createdAt: new Date(data.createdAt),
@@ -148,7 +152,7 @@ export default function ChatbotPage() {
       console.error("Error sending message:", error);
       // Add error message
       const errorMessage: Message = {
-        id: crypto.randomUUID(),
+        id: generateId(),
         role: "assistant",
         content:
           "ขออภัยค่ะ เกิดข้อผิดพลาดในการเชื่อมต่อ กรุณาลองใหม่อีกครั้งค่ะ",
@@ -173,7 +177,7 @@ export default function ChatbotPage() {
 
     // Add confirmation message
     const confirmMessage: Message = {
-      id: crypto.randomUUID(),
+      id: generateId(),
       role: "assistant",
       content: "บันทึก API Key เรียบร้อยแล้วค่ะ",
       createdAt: new Date(),
@@ -216,9 +220,9 @@ export default function ChatbotPage() {
 
         // แสดงข้อความสำเร็จ
         const successMessage: Message = {
-          id: crypto.randomUUID(),
+          id: generateId(),
           role: "assistant",
-          content: "เพิ่มข้อมูลลงในฐานความรู้เรียบร้อยแล้วค่ะ 📚",
+          content: "เพิ่มข้อมูลลงในฐานข้อมูลเรียบร้อยแล้วค่ะ 📚",
           createdAt: new Date(),
         };
         setMessages((prev) => [...prev, successMessage]);
@@ -228,7 +232,7 @@ export default function ChatbotPage() {
 
       // แสดงข้อความ error
       const errorMessage: Message = {
-        id: crypto.randomUUID(),
+        id: generateId(),
         role: "assistant",
         content:
           "ขออภัยค่ะ เกิดข้อผิดพลาดในการเพิ่มข้อมูล กรุณาลองใหม่อีกครั้งค่ะ 🙏",
@@ -242,38 +246,26 @@ export default function ChatbotPage() {
 
   // Remove document from knowledge base
   const removeKnowledgeItem = async (id: string) => {
+    if (isDeleting) return;
+
     try {
+      setIsDeleting(Number(id));
       const response = await fetch(`/api/documents/${id}`, {
         method: "DELETE",
       });
 
       if (response.ok) {
+        // ลบออกจาก UI ทันทีที่กดปุ่ม
         setKnowledgeBase((prev) => prev.filter((item) => item.id !== id));
-
-        // แสดงข้อความสำเร็จ
-        const successMessage: Message = {
-          id: crypto.randomUUID(),
-          role: "assistant",
-          content: "ลบข้อมูลเรียบร้อยแล้วค่ะ 🗑️",
-          createdAt: new Date(),
-        };
-        setMessages((prev) => [...prev, successMessage]);
+        await fetchKnowledgeBase(1);
       } else {
         const data = await response.json();
         throw new Error(data.error || "Failed to delete document");
       }
     } catch (error) {
       console.error("Error removing document:", error);
-
-      // แสดงข้อความ error
-      const errorMessage: Message = {
-        id: crypto.randomUUID(),
-        role: "assistant",
-        content:
-          "ขออภัยค่ะ เกิดข้อผิดพลาดในการลบข้อมูล กรุณาลองใหม่อีกครั้งค่ะ 🙏",
-        createdAt: new Date(),
-      };
-      setMessages((prev) => [...prev, errorMessage]);
+    } finally {
+      setIsDeleting(null);
     }
   };
 
@@ -299,6 +291,78 @@ export default function ChatbotPage() {
     return () => observer.disconnect();
   }, [hasMore, isLoadingMore]);
 
+  const KnowledgeItemSkeleton = () => (
+    <div className="p-3 bg-white/40 backdrop-blur-sm rounded-lg shadow-sm relative">
+      <Skeleton className="h-4 w-full mb-2" />
+      <Skeleton className="h-4 w-3/4" />
+      <div className="flex items-center gap-1 mt-2">
+        <Skeleton className="h-3 w-3 rounded-full" />
+        <Skeleton className="h-3 w-24" />
+      </div>
+    </div>
+  );
+
+  // Skeleton component สำหรับ response message
+  const ResponseMessageSkeleton = () => (
+    <div className="flex justify-start">
+      <div className="max-w-[85%]">
+        <div className="bg-white/40 backdrop-blur-sm rounded-2xl rounded-tl-none p-4 shadow-sm">
+          <div className="space-y-2">
+            <Skeleton className="h-4 w-64" />
+            <Skeleton className="h-4 w-48" />
+            <Skeleton className="h-4 w-32" />
+          </div>
+        </div>
+        <div className="flex items-center text-xs mt-1 space-x-1 text-gray-500">
+          <Clock className="h-3 w-3" />
+          <span>{formatDate(new Date())}</span>
+        </div>
+      </div>
+    </div>
+  );
+
+  // สร้าง SwipeToDelete component
+  const SwipeToDelete = ({
+    children,
+    onDelete,
+  }: {
+    children: React.ReactNode;
+    onDelete: () => void;
+  }) => {
+    const [{ x }, api] = useSpring(() => ({ x: 0 }));
+
+    const bind = useDrag(
+      ({ down, movement: [mx], direction: [xDir], velocity: [vx], cancel }) => {
+        if (!down && (mx < -100 || vx < -0.3)) {
+          onDelete();
+          return;
+        }
+        api.start({ x: down ? mx : 0, immediate: down });
+      },
+      { axis: "x", bounds: { left: -200, right: 0 } }
+    );
+
+    return (
+      <div className="relative overflow-hidden touch-pan-y rounded-lg">
+        {/* Delete background - ปรับสีและความทึบ */}
+        {/* <div className="absolute inset-0 bg-red-500/90 flex items-center justify-end px-4 rounded-lg">
+          <Trash2 className="h-6 w-6 text-white" />
+        </div> */}
+        {/* Swipeable content - ปรับความทึบของพื้นหลัง */}
+        <animated.div
+          {...bind()}
+          style={{
+            transform: x.to((x) => `translateX(${x}px)`),
+            touchAction: "pan-y",
+          }}
+          className="relative bg-white/60 backdrop-blur-md rounded-lg shadow-sm"
+        >
+          <div className="group">{children}</div>
+        </animated.div>
+      </div>
+    );
+  };
+
   return (
     <div className="flex flex-col min-h-screen bg-gradient-to-br from-blue-50 to-purple-50">
       {/* Background decorative elements */}
@@ -310,7 +374,7 @@ export default function ChatbotPage() {
 
       <header className="py-6 px-8">
         <h1 className="text-2xl font-semibold text-center text-gray-800">
-          What if, Chat?
+          Just easy RAG Chat?
         </h1>
         <p className="text-center text-gray-500 mt-1">
           latest data collection: {formatDate(latestDate)}
@@ -336,7 +400,7 @@ export default function ChatbotPage() {
                 className="flex items-center gap-2"
               >
                 <Database className="h-4 w-4" />
-                ฐานความรู้
+                ฐานข้อมูล
               </TabsTrigger>
             </TabsList>
           </Tabs>
@@ -353,49 +417,53 @@ export default function ChatbotPage() {
           >
             <div className="p-4 border-b border-white/10 bg-white/20">
               <h2 className="text-lg font-medium text-gray-800">แชท</h2>
-              <p className="text-sm text-gray-600">ถามคำถามกับ RAG+Chat</p>
             </div>
 
             <div className="flex-1 min-h-0 overflow-auto p-6">
               <div className="space-y-6">
-                {messages.length === 0 && (
+                {messages.length === 0 ? (
                   <div className="text-center py-10">
                     <p className="text-gray-400">เริ่มการสนทนากับ AI</p>
                   </div>
+                ) : (
+                  <>
+                    {messages.map((message) => (
+                      <div
+                        key={message.id}
+                        className={`flex ${
+                          message.role === "user"
+                            ? "justify-end"
+                            : "justify-start"
+                        }`}
+                      >
+                        <div className="max-w-[85%]">
+                          <div
+                            className={cn(
+                              "rounded-2xl p-4 shadow-sm",
+                              message.role === "user"
+                                ? "bg-blue-500/90 text-white rounded-tr-none"
+                                : "bg-white/40 backdrop-blur-sm text-gray-800 rounded-tl-none"
+                            )}
+                          >
+                            {message.content}
+                          </div>
+                          <div
+                            className={cn(
+                              "flex items-center text-xs mt-1 space-x-1",
+                              message.role === "user"
+                                ? "justify-end text-gray-500"
+                                : "justify-start text-gray-500"
+                            )}
+                          >
+                            <Clock className="h-3 w-3" />
+                            <span>{formatDate(message.createdAt)}</span>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                    {isLoading && <ResponseMessageSkeleton />}
+                  </>
                 )}
-
-                {messages.map((message) => (
-                  <div
-                    key={message.id}
-                    className={`flex ${
-                      message.role === "user" ? "justify-end" : "justify-start"
-                    }`}
-                  >
-                    <div className="max-w-[85%]">
-                      <div
-                        className={cn(
-                          "rounded-2xl p-4 shadow-sm",
-                          message.role === "user"
-                            ? "bg-blue-500/90 text-white rounded-tr-none"
-                            : "bg-white/40 backdrop-blur-sm text-gray-800 rounded-tl-none"
-                        )}
-                      >
-                        {message.content}
-                      </div>
-                      <div
-                        className={cn(
-                          "flex items-center text-xs mt-1 space-x-1",
-                          message.role === "user"
-                            ? "justify-end text-gray-500"
-                            : "justify-start text-gray-500"
-                        )}
-                      >
-                        <Clock className="h-3 w-3" />
-                        <span>{formatDate(message.createdAt)}</span>
-                      </div>
-                    </div>
-                  </div>
-                ))}
                 <div ref={messagesEndRef} />
               </div>
             </div>
@@ -427,52 +495,77 @@ export default function ChatbotPage() {
           {/* Knowledge Base Management */}
           <Card
             className={cn(
-              "flex flex-col h-[75vh] bg-white/30 backdrop-blur-sm border border-white/20 shadow-xl rounded-2xl overflow-hidden",
+              "flex flex-col h-[75vh] bg-green-50/50 backdrop-blur-sm border border-green-100 shadow-xl rounded-2xl overflow-hidden",
               "md:flex",
               activeTab === "knowledge" ? "flex" : "hidden"
             )}
           >
-            <div className="p-4 border-b border-white/10 bg-white/20 flex justify-between items-center">
+            <div className="p-4 border-b border-green-100 bg-green-50/70 flex justify-between items-center">
               <div>
-                <h2 className="text-lg font-medium text-gray-800 flex items-center gap-2">
-                  <Database className="h-4 w-4" />
-                  ฐานความรู้
+                <h2 className="text-lg font-medium text-green-900 flex items-center gap-2">
+                  <Database className="h-4 w-4 text-green-700" />
+                  ฐานข้อมูล
                 </h2>
-                <p className="text-sm text-gray-600">เพิ่มข้อมูลสำหรับ RAG</p>
+                <p className="text-sm text-green-700">เพิ่มข้อมูลสำหรับ RAG</p>
               </div>
             </div>
 
-            <div className="flex-1 min-h-0 overflow-auto p-4">
-              {knowledgeBase.length === 0 ? (
+            <div className="flex-1 min-h-0 overflow-auto p-4 bg-green-50/30">
+              {isLoadingMore && page === 1 ? (
+                <div className="space-y-3">
+                  {[...Array(3)].map((_, i) => (
+                    <KnowledgeItemSkeleton key={i} />
+                  ))}
+                </div>
+              ) : knowledgeBase.length === 0 ? (
                 <div className="text-center py-10">
-                  <p className="text-gray-400">ยังไม่มีข้อมูลในฐานความรู้</p>
+                  <p className="text-green-700">ยังไม่มีข้อมูลในฐานข้อมูล</p>
                 </div>
               ) : (
                 <div className="space-y-3">
                   {knowledgeBase.map((item) => (
                     <div
                       key={`${item.id}-${new Date(item.timestamp).getTime()}`}
-                      className="group p-3 bg-white/40 backdrop-blur-sm rounded-lg shadow-sm relative"
+                      className="rounded-lg overflow-hidden"
                     >
-                      <p className="pr-8 text-gray-700">{item.text}</p>
-                      <div className="flex items-center text-xs text-gray-500 mt-2">
-                        <Clock className="h-3 w-3 mr-1" />
-                        <span>{formatDate(item.timestamp)}</span>
-                      </div>
-                      <button
-                        onClick={() => removeKnowledgeItem(item.id)}
-                        className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity"
-                      >
-                        <Trash2 className="h-4 w-4 text-gray-400 hover:text-red-500" />
-                      </button>
+                      {isDeleting === Number(item.id) ? (
+                        <div className="p-3 bg-green-50/70 backdrop-blur-md rounded-lg shadow-sm">
+                          <Skeleton className="h-4 w-full mb-2 bg-green-100" />
+                          <Skeleton className="h-4 w-3/4 bg-green-100" />
+                          <div className="flex items-center gap-1 mt-2">
+                            <Skeleton className="h-3 w-3 rounded-full bg-green-100" />
+                            <Skeleton className="h-3 w-24 bg-green-100" />
+                          </div>
+                        </div>
+                      ) : (
+                        <SwipeToDelete
+                          onDelete={() => removeKnowledgeItem(item.id)}
+                        >
+                          <div className="p-3 bg-white/90 backdrop-blur-sm rounded-lg shadow-md relative">
+                            <p className="pr-8 text-green-900">{item.text}</p>
+                            <div className="flex items-center text-xs text-green-700 mt-2">
+                              <Clock className="h-3 w-3 mr-1 text-green-600" />
+                              <span>{formatDate(item.timestamp)}</span>
+                            </div>
+                            <button
+                              onClick={() => removeKnowledgeItem(item.id)}
+                              className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity md:block hidden"
+                            >
+                              <Trash2 className="h-4 w-4 text-green-600 hover:text-green-800" />
+                            </button>
+                          </div>
+                        </SwipeToDelete>
+                      )}
                     </div>
                   ))}
 
-                  {/* Loading indicator และ Observer target */}
+                  {/* Loading indicator สำหรับ infinite scroll */}
                   <div ref={observerTarget} className="py-4">
                     {isLoadingMore && (
-                      <div className="flex justify-center">
-                        <div className="h-6 w-6 animate-spin rounded-full border-2 border-gray-500 border-t-transparent" />
+                      <div className="space-y-3">
+                        {[...Array(2)].map((_, i) => (
+                          <KnowledgeItemSkeleton key={i} />
+                        ))}
                       </div>
                     )}
                   </div>
@@ -485,7 +578,7 @@ export default function ChatbotPage() {
                 <Textarea
                   value={databaseEntry}
                   onChange={(e) => setDatabaseEntry(e.target.value)}
-                  placeholder="เพิ่มข้อมูลลงในฐานความรู้ของคุณ..."
+                  placeholder="เพิ่มข้อมูลลงในฐานข้อมูลของคุณ..."
                   className="resize-none bg-white/50 border-white/20"
                 />
                 <Button
@@ -498,7 +591,7 @@ export default function ChatbotPage() {
                   ) : (
                     <>
                       <Plus className="h-4 w-4 mr-2" />
-                      เพิ่มลงในฐานความรู้
+                      เพิ่มลงในฐานข้อมูล
                     </>
                   )}
                 </Button>

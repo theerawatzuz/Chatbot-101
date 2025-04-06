@@ -2,21 +2,17 @@ import { connectDB, queryTiDB } from "./db";
 import { format } from "date-fns";
 import { th } from "date-fns/locale";
 
-// Google API Key
 const GOOGLE_API_KEY = "AIzaSyByxhX3HBfudEfV65R2phYohSjbhBy1FFg";
 
 let chatMemory: string[] = [];
 
-// Function to generate response from Gemini API
 export async function generateResponse(
   message: string,
   apiKey = GOOGLE_API_KEY
 ) {
   try {
-    // เชื่อมต่อ DB
     const connection = await connectDB();
 
-    // ค้นหาข้อมูลที่เกี่ยวข้อง
     const retrievedDocs = await queryTiDB(connection, message);
     const context = retrievedDocs.map((doc: any) => doc.document).join("\n");
 
