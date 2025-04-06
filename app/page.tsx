@@ -446,6 +446,7 @@ export default function ChatbotPage() {
   useEffect(() => {
     const handleType = () => {
       const i = loopNum % titles.length;
+
       const fullText = titles[i];
 
       setCurrentTitle(
