@@ -24,6 +24,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useSpring, animated } from "@react-spring/web";
 import { useDrag } from "@use-gesture/react";
+import { motion, AnimatePresence } from "framer-motion";
 
 interface Message {
   id: string;
@@ -59,10 +60,17 @@ export default function ChatbotPage() {
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const ITEMS_PER_PAGE = 10;
   const observerTarget = useRef<HTMLDivElement>(null);
-  const [isDeleting, setIsDeleting] = useState<number | null>(null);
+  const [isDeleting, setIsDeleting] = useState<boolean>(false);
   const [chatMode, setChatMode] = useState<"gemini" | "rag">("rag");
   const [geminiMessages, setGeminiMessages] = useState<Message[]>([]);
   const [ragMessages, setRagMessages] = useState<Message[]>([]);
+  const [currentTitle, setCurrentTitle] = useState("");
+  const titles = ["Easy Chat?", "Simple Chat", "Example Chat"];
+  const [loopNum, setLoopNum] = useState(0);
+  const [typingSpeed, setTypingSpeed] = useState(150);
+
+  // เพิ่ม transition class
+  const transitionClass = "transition-all duration-300 ease-in-out";
 
   // แยก welcome message สำหรับแต่ละโหมด
   const geminiWelcomeMessage: Message = {
@@ -228,8 +236,18 @@ export default function ChatbotPage() {
 
   // Auto-scroll to bottom of messages
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+    // ดึงข้อความปัจจุบันตามโหมด
+    const currentMessages =
+      chatMode === "gemini" ? geminiMessages : ragMessages;
+
+    // scroll ลงล่างเมื่อมีข้อความใหม่หรือกำลังโหลด
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({
+        behavior: "smooth",
+        block: "end",
+      });
+    }
+  }, [geminiMessages, ragMessages, isLoading]); // เพิ่ม dependency ให้ทำงานเมื่อมีการเปลี่ยนแปลงข้อความหรือสถานะ loading
 
   // Add document to knowledge base
   const handleDatabaseSubmit = async (e: React.FormEvent) => {
@@ -289,7 +307,7 @@ export default function ChatbotPage() {
     if (isDeleting) return;
 
     try {
-      setIsDeleting(Number(id));
+      setIsDeleting(true);
       const response = await fetch(`/api/documents/${id}`, {
         method: "DELETE",
       });
@@ -305,7 +323,7 @@ export default function ChatbotPage() {
     } catch (error) {
       console.error("Error removing document:", error);
     } finally {
-      setIsDeleting(null);
+      setIsDeleting(false);
     }
   };
 
@@ -412,8 +430,41 @@ export default function ChatbotPage() {
     }
   };
 
+  useEffect(() => {
+    const handleType = () => {
+      const i = loopNum % titles.length;
+      const fullText = titles[i];
+
+      setCurrentTitle(
+        isDeleting
+          ? fullText.substring(0, currentTitle.length - 1)
+          : fullText.substring(0, currentTitle.length + 1)
+      );
+
+      setTypingSpeed(isDeleting ? 75 : 150);
+
+      if (!isDeleting && currentTitle === fullText) {
+        setTimeout(() => setIsDeleting(true), 5000); // ค้างไว้ 5 วินาทีก่อนลบ
+      } else if (isDeleting && currentTitle === "") {
+        setIsDeleting(false);
+        setLoopNum(loopNum + 1);
+      }
+    };
+
+    const timer = setTimeout(handleType, typingSpeed);
+    return () => clearTimeout(timer);
+  }, [currentTitle, isDeleting, loopNum, typingSpeed]);
+
   return (
-    <div className="flex flex-col min-h-screen bg-gradient-to-br from-blue-50 to-purple-50">
+    <div
+      className={cn(
+        "flex flex-col min-h-screen",
+        transitionClass,
+        chatMode === "gemini"
+          ? "bg-gradient-to-br from-violet-50 via-white to-violet-100"
+          : "bg-gradient-to-br from-violet-50 via-white to-emerald-100"
+      )}
+    >
       {/* Background decorative elements */}
       <div className="fixed inset-0 -z-10 overflow-hidden">
         <div className="absolute -top-40 -right-40 w-80 h-80 bg-purple-200 rounded-full opacity-20 blur-3xl"></div>
@@ -421,11 +472,37 @@ export default function ChatbotPage() {
         <div className="absolute -bottom-20 right-1/3 w-72 h-72 bg-pink-200 rounded-full opacity-20 blur-3xl"></div>
       </div>
 
-      <header className="py-6 px-8">
-        <h1 className="text-2xl font-semibold text-center text-gray-800">
-          Just Easy Chat?
+      <header className="py-3 md:py-6 px-4 md:px-8">
+        <h1 className="text-xl md:text-2xl font-semibold text-center">
+          Just{" "}
+          <motion.span
+            key={loopNum}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.2 }}
+            className={cn(
+              "inline-block",
+              titles[loopNum % titles.length] === "Easy Chat?"
+                ? "bg-gradient-to-r from-violet-500 to-emerald-500 bg-clip-text text-transparent"
+                : "text-gray-400 "
+            )}
+          >
+            {currentTitle}
+            <motion.span
+              animate={{ opacity: [0, 1, 0] }}
+              transition={{ repeat: Infinity, duration: 0.8 }}
+              className={cn(
+                "ml-0.5",
+                titles[loopNum % titles.length] === "Easy Chat?"
+                  ? "bg-gradient-to-r from-violet-500 to-emerald-500 bg-clip-text text-transparent"
+                  : "text-gray-400"
+              )}
+            >
+              |
+            </motion.span>
+          </motion.span>
         </h1>
-        <p className="text-center text-gray-500 mt-1">
+        <p className="text-xs md:text-sm text-center text-gray-500 mt-0.5 md:mt-1">
           latest data collection:{" "}
           {latestDate ? formatDate(latestDate) : "ยังไม่มีข้อมูล"}
         </p>
@@ -460,25 +537,52 @@ export default function ChatbotPage() {
           {/* Chat Interface */}
           <Card
             className={cn(
-              "flex flex-col h-[75vh] bg-white/30 backdrop-blur-sm border border-white/20 shadow-xl rounded-2xl overflow-hidden",
+              "flex flex-col h-[75vh] backdrop-blur-sm shadow-lg rounded-2xl overflow-hidden",
               "md:flex",
-              activeTab === "chat" ? "flex" : "hidden"
+              activeTab === "chat" ? "flex" : "hidden",
+              transitionClass,
+              // สีพื้นหลังและ border ตามโหมด
+              chatMode === "gemini"
+                ? "bg-white/80 border border-violet-100"
+                : "bg-white/80 border border-emerald-100"
             )}
           >
-            <div className="p-4 border-b border-white/10 bg-white/20">
+            <div
+              className={cn(
+                "p-4 border-b",
+                transitionClass,
+                chatMode === "gemini"
+                  ? "bg-violet-50/50 border-violet-100"
+                  : "bg-gradient-to-r from-violet-50/50 to-emerald-50/50 border-emerald-100"
+              )}
+            >
               <div className="flex justify-between items-center">
                 <div>
                   <h2 className="text-lg font-medium text-gray-800">แชท</h2>
-                  <p className="text-xs text-gray-500">
-                    Powered Gemini 2.0 flash
+                  <p
+                    className={cn(
+                      "text-xs",
+                      transitionClass,
+                      chatMode === "gemini"
+                        ? "text-violet-500"
+                        : "text-emerald-600"
+                    )}
+                  >
+                    by Gemini 2.0 flash
                   </p>
                 </div>
                 <div className="flex gap-2 items-center">
-                  <div className="h-4 w-px bg-gray-200" /> {/* เส้นแบ่ง */}
                   <Button
                     variant={chatMode === "gemini" ? "default" : "outline"}
                     size="sm"
                     onClick={() => setChatMode("gemini")}
+                    className={cn(
+                      transitionClass,
+                      "rounded-full",
+                      chatMode === "gemini"
+                        ? "bg-violet-500 hover:bg-violet-600 text-white shadow-md"
+                        : "text-violet-500 hover:text-violet-600 border-violet-200"
+                    )}
                   >
                     Gemini
                   </Button>
@@ -486,6 +590,13 @@ export default function ChatbotPage() {
                     variant={chatMode === "rag" ? "default" : "outline"}
                     size="sm"
                     onClick={() => setChatMode("rag")}
+                    className={cn(
+                      transitionClass,
+                      "rounded-full",
+                      chatMode === "rag"
+                        ? "bg-gradient-to-r from-violet-500 to-emerald-500 hover:from-violet-600 hover:to-emerald-600 text-white shadow-md"
+                        : "text-emerald-600 hover:text-emerald-700 border-emerald-200"
+                    )}
                   >
                     Gemini + RAG
                   </Button>
@@ -520,9 +631,12 @@ export default function ChatbotPage() {
                             <div
                               className={cn(
                                 "rounded-2xl p-4 shadow-sm",
+                                transitionClass,
                                 message.role === "user"
-                                  ? "bg-blue-500/90 text-white rounded-tr-none"
-                                  : "bg-white/40 backdrop-blur-sm text-gray-800 rounded-tl-none"
+                                  ? "bg-gray-100 text-gray-800 rounded-tr-none border border-gray-200"
+                                  : chatMode === "gemini"
+                                  ? "bg-violet-50 text-gray-800 rounded-tl-none border border-violet-100"
+                                  : "bg-gradient-to-r from-violet-50 to-emerald-50 text-gray-800 rounded-tl-none border border-emerald-100"
                               )}
                             >
                               {message.content}
@@ -545,17 +659,31 @@ export default function ChatbotPage() {
                     {isLoading && <ResponseMessageSkeleton />}
                   </>
                 )}
-                <div ref={messagesEndRef} />
+                <div ref={messagesEndRef} className="h-px" />
               </div>
             </div>
 
-            <div className="mt-auto p-4 bg-white/20 border-t border-white/10">
+            <div
+              className={cn(
+                "mt-auto p-4 border-t",
+                transitionClass,
+                chatMode === "gemini"
+                  ? "bg-violet-50/50 border-violet-100"
+                  : "bg-gradient-to-r from-violet-50/50 to-emerald-50/50 border-emerald-100"
+              )}
+            >
               <form onSubmit={handleSubmit} className="flex gap-2">
                 <Button
                   type="button"
                   size="icon"
                   onClick={clearHistory}
-                  className="bg-red-100 hover:bg-red-200 text-red-600 hover:text-red-700 transition-colors"
+                  className={cn(
+                    transitionClass,
+                    "rounded-full",
+                    chatMode === "gemini"
+                      ? "bg-violet-100 hover:bg-violet-200 text-violet-600"
+                      : "bg-emerald-100 hover:bg-emerald-200 text-emerald-600"
+                  )}
                   title="เริ่มการสนทนาใหม่"
                 >
                   <RotateCcw className="h-4 w-4" />
@@ -564,13 +692,25 @@ export default function ChatbotPage() {
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
                   placeholder="พิมพ์ข้อความของคุณ..."
-                  className="flex-1 bg-white/50 border-white/20"
+                  className={cn(
+                    "flex-1 rounded-full",
+                    transitionClass,
+                    chatMode === "gemini"
+                      ? "bg-white border-violet-200 focus:border-violet-400 placeholder:text-violet-300"
+                      : "bg-white border-emerald-200 focus:border-emerald-400 placeholder:text-emerald-300"
+                  )}
                   disabled={isLoading}
                 />
                 <Button
                   type="submit"
                   disabled={isLoading}
-                  className="bg-blue-500 hover:bg-blue-600"
+                  className={cn(
+                    transitionClass,
+                    "rounded-full shadow-md",
+                    chatMode === "gemini"
+                      ? "bg-violet-500 hover:bg-violet-600"
+                      : "bg-gradient-to-r from-violet-500 to-emerald-500 hover:from-violet-600 hover:to-emerald-600"
+                  )}
                 >
                   {isLoading ? (
                     <div className="h-5 w-5 animate-spin rounded-full border-2 border-white border-t-transparent" />
@@ -596,7 +736,9 @@ export default function ChatbotPage() {
                   <Database className="h-4 w-4 text-green-700" />
                   ฐานข้อมูล
                 </h2>
-                <p className="text-sm text-green-700">เพิ่มข้อมูลสำหรับ RAG</p>
+                <p className="text-sm text-green-700">
+                  Please remember trash in also trash out!
+                </p>
               </div>
             </div>
 
@@ -618,7 +760,7 @@ export default function ChatbotPage() {
                       key={`${item.id}-${new Date(item.timestamp).getTime()}`}
                       className="rounded-lg overflow-hidden"
                     >
-                      {isDeleting === Number(item.id) ? (
+                      {isDeleting ? (
                         <div className="p-3 bg-green-50/70 backdrop-blur-md rounded-lg shadow-sm">
                           <Skeleton className="h-4 w-full mb-2 bg-green-100" />
                           <Skeleton className="h-4 w-3/4 bg-green-100" />
