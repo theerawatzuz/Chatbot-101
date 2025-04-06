@@ -20,9 +20,9 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "RAG Chatbot",
+  title: "Just Easy Chat?",
   description: "A minimalist RAG chatbot with database integration",
-  generator: "v0.dev",
+  generator: "v1",
 };
 
 export default function RootLayout({

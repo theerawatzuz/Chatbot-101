@@ -60,7 +60,10 @@ export default function ChatbotPage() {
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const ITEMS_PER_PAGE = 10;
   const observerTarget = useRef<HTMLDivElement>(null);
-  const [isDeleting, setIsDeleting] = useState<boolean>(false);
+  const [isDeletingItems, setIsDeletingItems] = useState<Set<string>>(
+    new Set()
+  );
+  const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [chatMode, setChatMode] = useState<"gemini" | "rag">("rag");
   const [geminiMessages, setGeminiMessages] = useState<Message[]>([]);
   const [ragMessages, setRagMessages] = useState<Message[]>([]);
@@ -109,7 +112,12 @@ export default function ChatbotPage() {
 
   const fetchKnowledgeBase = async (pageNumber = 1) => {
     try {
-      setIsLoadingMore(true);
+      if (pageNumber === 1) {
+        setIsInitialLoading(true);
+      } else {
+        setIsLoadingMore(true);
+      }
+
       const response = await fetch(
         `/api/documents?page=${pageNumber}&limit=${ITEMS_PER_PAGE}`
       );
@@ -118,7 +126,6 @@ export default function ChatbotPage() {
         if (pageNumber === 1) {
           setKnowledgeBase(data.documents);
         } else {
-          // เพิ่ม type KnowledgeItem ให้กับ doc
           setKnowledgeBase((prev) => {
             const existingIds = new Set(prev.map((item) => item.id));
             const newDocs = data.documents.filter(
@@ -135,6 +142,7 @@ export default function ChatbotPage() {
     } catch (error) {
       console.error("Error fetching knowledge base:", error);
     } finally {
+      setIsInitialLoading(false);
       setIsLoadingMore(false);
     }
   };
@@ -304,18 +312,16 @@ export default function ChatbotPage() {
 
   // Remove document from knowledge base
   const removeKnowledgeItem = async (id: string) => {
-    if (isDeleting) return;
+    if (isDeletingItems.has(id)) return;
 
     try {
-      setIsDeleting(true);
+      setIsDeletingItems((prev) => new Set([...prev, id]));
       const response = await fetch(`/api/documents/${id}`, {
         method: "DELETE",
       });
 
       if (response.ok) {
-        // ลบออกจาก UI ทันทีที่กดปุ่ม
         setKnowledgeBase((prev) => prev.filter((item) => item.id !== id));
-        await fetchKnowledgeBase(1);
       } else {
         const data = await response.json();
         throw new Error(data.error || "Failed to delete document");
@@ -323,7 +329,11 @@ export default function ChatbotPage() {
     } catch (error) {
       console.error("Error removing document:", error);
     } finally {
-      setIsDeleting(false);
+      setIsDeletingItems((prev) => {
+        const newSet = new Set(prev);
+        newSet.delete(id);
+        return newSet;
+      });
     }
   };
 
@@ -436,24 +446,27 @@ export default function ChatbotPage() {
       const fullText = titles[i];
 
       setCurrentTitle(
-        isDeleting
+        isDeletingItems.has(i.toString())
           ? fullText.substring(0, currentTitle.length - 1)
           : fullText.substring(0, currentTitle.length + 1)
       );
 
-      setTypingSpeed(isDeleting ? 75 : 150);
+      setTypingSpeed(isDeletingItems.has(i.toString()) ? 75 : 150);
 
-      if (!isDeleting && currentTitle === fullText) {
-        setTimeout(() => setIsDeleting(true), 5000); // ค้างไว้ 5 วินาทีก่อนลบ
-      } else if (isDeleting && currentTitle === "") {
-        setIsDeleting(false);
+      if (!isDeletingItems.has(i.toString()) && currentTitle === fullText) {
+        setTimeout(() => {
+          const itemId = i.toString();
+          setIsDeletingItems(new Set([itemId]));
+        }, 5000);
+      } else if (isDeletingItems.has(i.toString()) && currentTitle === "") {
+        setIsDeletingItems(new Set());
         setLoopNum(loopNum + 1);
       }
     };
 
     const timer = setTimeout(handleType, typingSpeed);
     return () => clearTimeout(timer);
-  }, [currentTitle, isDeleting, loopNum, typingSpeed]);
+  }, [currentTitle, isDeletingItems, loopNum, typingSpeed]);
 
   return (
     <div
@@ -743,7 +756,7 @@ export default function ChatbotPage() {
             </div>
 
             <div className="flex-1 min-h-0 overflow-auto p-4 bg-green-50/30">
-              {isLoadingMore && page === 1 ? (
+              {isInitialLoading ? (
                 <div className="space-y-3">
                   {[...Array(3)].map((_, i) => (
                     <KnowledgeItemSkeleton key={i} />
@@ -760,7 +773,7 @@ export default function ChatbotPage() {
                       key={`${item.id}-${new Date(item.timestamp).getTime()}`}
                       className="rounded-lg overflow-hidden"
                     >
-                      {isDeleting ? (
+                      {isDeletingItems.has(item.id) ? (
                         <div className="p-3 bg-green-50/70 backdrop-blur-md rounded-lg shadow-sm">
                           <Skeleton className="h-4 w-full mb-2 bg-green-100" />
                           <Skeleton className="h-4 w-3/4 bg-green-100" />

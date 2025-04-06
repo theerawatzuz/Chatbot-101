@@ -6,7 +6,7 @@ export async function DELETE(
   { params }: { params: { id: string } }
 ) {
   try {
-    const id = await Promise.resolve(params.id);
+    const { id } = params;
 
     const connection = await connectDB();
 
