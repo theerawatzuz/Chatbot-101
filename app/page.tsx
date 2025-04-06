@@ -138,6 +138,12 @@ export default function ChatbotPage() {
         if (data.latestDate) {
           setLatestDate(new Date(data.latestDate));
         }
+        console.log(
+          "Fetched page:",
+          pageNumber,
+          "hasMore:",
+          data.documents.length === ITEMS_PER_PAGE
+        );
       }
     } catch (error) {
       console.error("Error fetching knowledge base:", error);
@@ -341,23 +347,36 @@ export default function ChatbotPage() {
   useEffect(() => {
     const observer = new IntersectionObserver(
       (entries) => {
-        if (entries[0].isIntersecting && hasMore && !isLoadingMore) {
-          setPage((prev) => {
-            const nextPage = prev + 1;
-            fetchKnowledgeBase(nextPage);
-            return nextPage;
-          });
+        if (
+          entries[0].isIntersecting &&
+          hasMore &&
+          !isLoadingMore &&
+          !isInitialLoading
+        ) {
+          setIsLoadingMore(true);
+          setPage((prev) => prev + 1);
         }
       },
-      { threshold: 0.5 }
+      { threshold: 0.1 }
     );
 
-    if (observerTarget.current) {
-      observer.observe(observerTarget.current);
+    const target = observerTarget.current;
+    if (target) {
+      observer.observe(target);
     }
 
-    return () => observer.disconnect();
-  }, [hasMore, isLoadingMore]);
+    return () => {
+      if (target) {
+        observer.unobserve(target);
+      }
+    };
+  }, [hasMore, isLoadingMore, isInitialLoading]);
+
+  useEffect(() => {
+    if (page > 1) {
+      fetchKnowledgeBase(page);
+    }
+  }, [page]);
 
   const KnowledgeItemSkeleton = () => (
     <div className="p-3 bg-white/40 backdrop-blur-sm rounded-lg shadow-sm relative">
@@ -388,51 +407,6 @@ export default function ChatbotPage() {
       </div>
     </div>
   );
-
-  // สร้าง SwipeToDelete component
-  const SwipeToDelete = ({
-    children,
-    onDelete,
-  }: {
-    children: React.ReactNode;
-    onDelete: () => void;
-  }) => {
-    const [{ x }, api] = useSpring(() => ({ x: 0 }));
-
-    const bind = useDrag(
-      ({ down, movement: [mx], direction: [xDir], velocity: [vx], cancel }) => {
-        if (!down && (mx < -100 || vx < -0.3)) {
-          onDelete();
-          return;
-        }
-        api.start({ x: down ? mx : 0, immediate: down });
-      },
-      { axis: "x", bounds: { left: -200, right: 0 } }
-    );
-
-    return (
-      <div className="relative overflow-hidden touch-pan-y rounded-lg">
-        {/* Delete background - ปรับสีและความทึบ */}
-        {/* <div className="absolute inset-0 bg-red-500/90 flex items-center justify-end px-4 rounded-lg">
-          <Trash2 className="h-6 w-6 text-white" />
-        </div> */}
-        {/* Swipeable content - ปรับความทึบของพื้นหลัง */}
-        <motion.div
-          drag="x"
-          dragConstraints={{ left: -200, right: 0 }}
-          onDragEnd={(event, info) => {
-            if (info.offset.x < -100 || info.velocity.x < -0.3) {
-              onDelete();
-            }
-          }}
-          style={{ touchAction: "pan-y" }}
-          className="relative bg-white/60 backdrop-blur-md rounded-lg shadow-sm"
-        >
-          <div className="group">{children}</div>
-        </motion.div>
-      </div>
-    );
-  };
 
   // เพิ่มฟังก์ชัน clearHistory
   const clearHistory = () => {
@@ -787,23 +761,19 @@ export default function ChatbotPage() {
                           </div>
                         </div>
                       ) : (
-                        <SwipeToDelete
-                          onDelete={() => removeKnowledgeItem(item.id)}
-                        >
-                          <div className="p-3 bg-white/90 backdrop-blur-sm rounded-lg shadow-md relative">
-                            <p className="pr-8 text-green-900">{item.text}</p>
-                            <div className="flex items-center text-xs text-green-700 mt-2">
-                              <Clock className="h-3 w-3 mr-1 text-green-600" />
-                              <span>{formatDate(item.timestamp)}</span>
-                            </div>
-                            <button
-                              onClick={() => removeKnowledgeItem(item.id)}
-                              className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity md:block hidden"
-                            >
-                              <Trash2 className="h-4 w-4 text-green-600 hover:text-green-800" />
-                            </button>
+                        <div className="p-3 bg-white/90 backdrop-blur-sm rounded-lg shadow-md relative">
+                          <p className="pr-8 text-green-900">{item.text}</p>
+                          <div className="flex items-center text-xs text-green-700 mt-2">
+                            <Clock className="h-3 w-3 mr-1 text-green-600" />
+                            <span>{formatDate(item.timestamp)}</span>
                           </div>
-                        </SwipeToDelete>
+                          <button
+                            onClick={() => removeKnowledgeItem(item.id)}
+                            className="absolute top-3 right-3"
+                          >
+                            <Trash2 className="h-4 w-4 text-green-600 hover:text-green-800" />
+                          </button>
+                        </div>
                       )}
                     </div>
                   ))}
