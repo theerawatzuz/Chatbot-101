@@ -88,7 +88,7 @@ export default function ChatbotPage() {
   const ragWelcomeMessage: Message = {
     id: generateId(),
     role: "assistant",
-    content: `สวัสดีค่ะ ฉันชื่อน้อยหน่า จาก Just Easy 😊 
+    content: `สวัสดีค่ะ ฉันชื่อน้อยหน่า จาก จัส อีซี่ (Just Easy) 😊 
 
 ในโหมด Gemini + RAG นี้ น้อยหน่าจะตอบคำถามตามข้อมูลที่มีในฐานข้อมูลนะคะ สามารถเพิ่มข้อมูลได้ที่แท็บ "ฐานข้อมูล" เลยค่ะ`,
     createdAt: new Date(),
@@ -728,7 +728,7 @@ export default function ChatbotPage() {
                   ฐานข้อมูล
                 </h2>
                 <p className="text-sm text-green-700">
-                  Please remember trash in also trash out!
+                  Please remember if trash in also trash out!
                 </p>
               </div>
             </div>
