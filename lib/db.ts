@@ -34,35 +34,28 @@ export async function testConnection() {
   }
 }
 
-// ฟังก์ชันค้นหาข้อมูลจาก vector database
+// ฟังก์ชันค้นหาข้อมูลจาก vector database (แบบเรียบง่าย)
 export async function queryTiDB(connection: any, queryText: string, k = 5) {
   try {
+    // สร้าง embedding จากคำถาม
     const queryEmbedding = await createEmbedding(queryText);
 
-    // รอบแรก: ค้นหาด้วย distance ปกติ
-    let sql_query = `
+    // สร้าง SQL query แบบตรงไปตรงมา
+    const sql_query = `
       SELECT document, vec_cosine_distance(embedding, '${queryEmbedding}') AS distance
       FROM documents
       ORDER BY distance
       LIMIT ${k}
     `;
 
-    let [rows] = await connection.execute(sql_query);
+    // รันคำสั่ง SQL
+    const [rows] = await connection.execute(sql_query);
 
-    // หากไม่พบข้อมูลในรอบแรก ให้ค้นหาอีกครั้งด้วย distance ที่ขยายออก
-    if (rows.length === 0) {
-      sql_query = `
-        SELECT document, vec_cosine_distance(embedding, '${queryEmbedding}') AS distance
-        FROM documents
-        WHERE vec_cosine_distance(embedding, '${queryEmbedding}') < 0.8
-        ORDER BY distance
-        LIMIT ${k}
-      `;
-      [rows] = await connection.execute(sql_query);
-    }
-    console.log("input", queryText);
-    console.log("query", sql_query);
-    console.log("rows", rows);
+    console.log("input:", queryText);
+    console.log("results found:", rows.length);
+    console.log("raws", rows);
+    console.log("length", queryEmbedding.length);
+
     return rows;
   } catch (error) {
     console.error("Query error:", error);

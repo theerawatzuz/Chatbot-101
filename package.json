@@ -9,6 +9,7 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@google/genai": "^0.7.0",
     "@google/generative-ai": "latest",
     "@hookform/resolvers": "^3.9.1",
     "@langchain/anthropic": "latest",

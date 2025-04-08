@@ -1,30 +1,39 @@
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import { GoogleGenAI } from "@google/genai";
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
+const genAI = new GoogleGenAI({
+  apiKey: process.env.GEMINI_API_KEY || "",
+});
 
 export async function createEmbedding(text: string) {
-  try {
-    const embeddingModel = genAI.getGenerativeModel({ model: "embedding-001" });
-    const result = await embeddingModel.embedContent(text);
-    let embedding = result.embedding.values;
-
-    if (embedding.length !== 1024) {
-      const normalizedEmbedding = new Array(1024).fill(0);
-
-      const step = embedding.length / 1024;
-      for (let i = 0; i < 1024; i++) {
-        const sourceIdx = Math.floor(i * step);
-        normalizedEmbedding[i] = embedding[sourceIdx];
-      }
-
-      embedding = normalizedEmbedding;
+  const response = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-exp-03-07:embedContent?key=${process.env.GEMINI_API_KEY}`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "models/gemini-embedding-exp-03-07",
+        content: {
+          parts: [{ text }],
+        },
+        taskType: "SEMANTIC_SIMILARITY",
+      }),
     }
+  );
 
-    return JSON.stringify(embedding);
-  } catch (error) {
-    console.error("Error creating embedding:", error);
-    throw error;
+  if (!response.ok) {
+    throw new Error("Failed to generate embedding");
   }
+
+  const data = await response.json();
+  const embedding = data.embedding?.values;
+  if (!embedding) {
+    throw new Error("Embedding not found in response");
+  }
+
+  console.log("🔢 Embedding length:", embedding.length);
+  return JSON.stringify(embedding);
 }
 
 export const getEmbedding = async (text: string) => {
