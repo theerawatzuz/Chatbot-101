@@ -71,6 +71,7 @@ export default function ChatbotPage() {
   const titles = ["Easy Chat?", "Simple Chat", "Example Chat"];
   const [loopNum, setLoopNum] = useState(0);
   const [typingSpeed, setTypingSpeed] = useState(150);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   // เพิ่ม transition class
   const transitionClass = "transition-all duration-300 ease-in-out";
@@ -224,6 +225,7 @@ export default function ChatbotPage() {
       }
     } finally {
       setIsLoading(false);
+      inputRef.current?.focus();
     }
   };
 
@@ -639,10 +641,7 @@ export default function ChatbotPage() {
                                   ? "justify-end text-gray-500"
                                   : "justify-start text-gray-500"
                               )}
-                            >
-                              <Clock className="h-3 w-3" />
-                              <span>{formatDate(message.createdAt)}</span>
-                            </div>
+                            ></div>
                           </div>
                         </div>
                       )
@@ -680,6 +679,7 @@ export default function ChatbotPage() {
                   <RotateCcw className="h-4 w-4" />
                 </Button>
                 <Input
+                  ref={inputRef}
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
                   placeholder="พิมพ์ข้อความของคุณ..."
