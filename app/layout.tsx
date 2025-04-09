@@ -23,6 +23,9 @@ export const metadata: Metadata = {
   title: "Just Easy Chat?",
   description: "A minimalist RAG chatbot with database integration",
   generator: "v1",
+  icons: {
+    icon: "./apple-touch-icon.png",
+  },
 };
 
 export default function RootLayout({
@@ -33,7 +36,8 @@ export default function RootLayout({
   return (
     <html lang="th" suppressHydrationWarning>
       <body
-        className={`${kanit.variable} ${inter.variable} font-kanit`}
+        className={`${kanit.variable} ${inter.variable} font-kanit bg-opacity-50 rounded-lg`}
+        style={{ backgroundColor: "rgba(255, 255, 255, 0.5)" }}
         suppressHydrationWarning
       >
         <ThemeProvider
@@ -42,7 +46,9 @@ export default function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
-          {children}
+          <div className="bg-white bg-opacity-50 rounded-lg p-6">
+            {children}
+          </div>
         </ThemeProvider>
       </body>
     </html>
