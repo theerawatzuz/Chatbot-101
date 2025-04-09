@@ -2,7 +2,21 @@ import { connectDB, queryTiDB } from "./db";
 import { format } from "date-fns";
 import { th } from "date-fns/locale";
 
-const GOOGLE_API_KEY = process.env.GEMINI_API_KEY || "";
+// เพิ่ม API Keys pool
+const API_KEYS = [
+  process.env.GEMINI_API_KEY || "",
+  process.env.GEMINI_API_KEY_1 || "",
+  process.env.GEMINI_API_KEY_2 || "",
+  process.env.GEMINI_API_KEY_3 || "",
+];
+
+let currentKeyIndex = 0;
+
+// ฟังก์ชันสำหรับเปลี่ยน API Key
+const rotateApiKey = () => {
+  currentKeyIndex = (currentKeyIndex + 1) % API_KEYS.length;
+  return API_KEYS[currentKeyIndex];
+};
 
 let geminiChatMemory: string[] = [];
 let ragChatMemory: string[] = [];
@@ -49,9 +63,12 @@ const ragSystemPrompt = `
 
 export async function generateResponse(
   message: string,
-  apiKey = GOOGLE_API_KEY,
-  mode: "gemini" | "rag" = "rag"
+  apiKey = API_KEYS[currentKeyIndex], // ใช้ API Key จาก pool
+  mode: "gemini" | "rag" = "rag",
+  retryCount = 0
 ) {
+  const maxRetries = API_KEYS.length - 1; // จำนวนครั้งที่จะลองใหม่เท่ากับจำนวน keys ที่เหลือ
+
   try {
     let context = "";
     const systemPrompt =
@@ -111,6 +128,20 @@ export async function generateResponse(
     );
 
     if (!response.ok) {
+      const errText = await response.text();
+      console.error("❌ Gemini error:", response.status, errText);
+
+      // ถ้าเป็น error 429 (quota exhausted) และยังมี API keys เหลือ
+      if (response.status === 429 && retryCount < maxRetries) {
+        console.log(
+          `🔄 Switching to next API key (${
+            retryCount + 1
+          }/${maxRetries} retries)`
+        );
+        const nextApiKey = rotateApiKey();
+        return generateResponse(message, nextApiKey, mode, retryCount + 1);
+      }
+
       throw new Error(`API request failed with status ${response.status}`);
     }
 
@@ -127,6 +158,15 @@ export async function generateResponse(
 
     return responseText;
   } catch (error) {
+    if (error instanceof Error && retryCount < maxRetries) {
+      console.log(
+        `🔄 Retrying with next API key (${
+          retryCount + 1
+        }/${maxRetries} retries)`
+      );
+      const nextApiKey = rotateApiKey();
+      return generateResponse(message, nextApiKey, mode, retryCount + 1);
+    }
     console.error("Error:", error);
     return "ขออภัยค่ะ เกิดข้อผิดพลาดในการประมวลผล กรุณาลองใหม่อีกครั้งค่ะ 🙏";
   }

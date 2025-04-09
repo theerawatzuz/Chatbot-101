@@ -25,6 +25,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useSpring, animated } from "@react-spring/web";
 import { useDrag } from "@use-gesture/react";
 import { motion, AnimatePresence } from "framer-motion";
+import ReactMarkdown from "react-markdown";
 
 interface Message {
   id: string;
@@ -41,6 +42,10 @@ interface KnowledgeItem {
 
 const generateId = () => {
   return Math.random().toString(36).substring(2) + Date.now().toString(36);
+};
+
+const formatMessageContent = (content: string) => {
+  return content.replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>");
 };
 
 export default function ChatbotPage() {
@@ -195,10 +200,20 @@ export default function ChatbotPage() {
       if (!response.ok) throw new Error("Failed to get response");
 
       const data = await response.json();
+
+      // ปรับปรุง response message สำหรับ Gemini + RAG
+      let responseContent = data.content;
+
+      if (chatMode === "rag") {
+        // แปลง \n เป็น <br /> สำหรับ RAG mode
+        responseContent = data.content.replace(/\\n/g, "\n");
+      }
+
+      console.log("Response content:", JSON.stringify(responseContent));
       const assistantMessage: Message = {
         id: generateId(),
         role: "assistant",
-        content: data.content,
+        content: responseContent,
         createdAt: new Date(),
       };
 
@@ -623,7 +638,7 @@ export default function ChatbotPage() {
                           <div className="max-w-[85%]">
                             <div
                               className={cn(
-                                "rounded-2xl p-4 shadow-sm",
+                                "rounded-2xl p-4 shadow-sm whitespace-pre-wrap",
                                 transitionClass,
                                 message.role === "user"
                                   ? "bg-gray-100 text-gray-800 rounded-tr-none border border-gray-200"
@@ -631,9 +646,10 @@ export default function ChatbotPage() {
                                   ? "bg-violet-50 text-gray-800 rounded-tl-none border border-violet-100"
                                   : "bg-gradient-to-r from-violet-50 to-emerald-50 text-gray-800 rounded-tl-none border border-emerald-100"
                               )}
-                            >
-                              {message.content}
-                            </div>
+                              dangerouslySetInnerHTML={{
+                                __html: formatMessageContent(message.content),
+                              }}
+                            />
                             <div
                               className={cn(
                                 "flex items-center text-xs mt-1 space-x-1",
