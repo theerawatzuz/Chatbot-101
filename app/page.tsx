@@ -176,7 +176,6 @@ export default function ChatbotPage() {
       createdAt: new Date(),
     };
 
-    // เพิ่มข้อความผู้ใช้ไปยัง state ที่เหมาะสม
     if (chatMode === "gemini") {
       setGeminiMessages((prev) => [...prev, userMessage]);
     } else {
@@ -185,6 +184,12 @@ export default function ChatbotPage() {
 
     setInput("");
     setIsLoading(true);
+
+    // Disable input but keep focus
+    if (inputRef.current) {
+      inputRef.current.disabled = true;
+      inputRef.current.focus();
+    }
 
     try {
       const response = await fetch("/api/chat", {
@@ -201,15 +206,12 @@ export default function ChatbotPage() {
 
       const data = await response.json();
 
-      // ปรับปรุง response message สำหรับ Gemini + RAG
       let responseContent = data.content;
 
       if (chatMode === "rag") {
-        // แปลง \n เป็น <br /> สำหรับ RAG mode
         responseContent = data.content.replace(/\\n/g, "\n");
       }
 
-      console.log("Response content:", JSON.stringify(responseContent));
       const assistantMessage: Message = {
         id: generateId(),
         role: "assistant",
@@ -217,7 +219,6 @@ export default function ChatbotPage() {
         createdAt: new Date(),
       };
 
-      // เพิ่มข้อความ AI ไปยัง state ที่เหมาะสม
       if (chatMode === "gemini") {
         setGeminiMessages((prev) => [...prev, assistantMessage]);
       } else {
@@ -240,7 +241,11 @@ export default function ChatbotPage() {
       }
     } finally {
       setIsLoading(false);
-      inputRef.current?.focus();
+      // Re-enable input and focus
+      if (inputRef.current) {
+        inputRef.current.disabled = false;
+        inputRef.current.focus();
+      }
     }
   };
 
@@ -516,16 +521,16 @@ export default function ChatbotPage() {
         </p>
       </header>
 
-      <main className="flex-1 p-6 md:p-8 max-w-6xl mx-auto w-full">
+      <main className="flex-1 p-0 md:p-8 max-w-6xl mx-auto w-full">
         {/* Mobile Tab Switcher */}
-        <div className="md:hidden mb-4">
+        <div className="md:hidden mb-0">
           <Tabs
             defaultValue="chat"
             onValueChange={(value) =>
               setActiveTab(value as "chat" | "knowledge")
             }
           >
-            <TabsList className="grid w-full grid-cols-2">
+            <TabsList className="grid w-full grid-cols-2 rounded-none">
               <TabsTrigger value="chat" className="flex items-center gap-2">
                 <Send className="h-4 w-4" />
                 แชท
@@ -541,15 +546,14 @@ export default function ChatbotPage() {
           </Tabs>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-0 md:gap-6">
           {/* Chat Interface */}
           <Card
             className={cn(
-              "flex flex-col h-[75vh] backdrop-blur-sm shadow-lg rounded-2xl overflow-hidden",
+              "flex flex-col h-[calc(100vh-56px-56px)] md:h-[75vh] backdrop-blur-sm shadow-lg rounded-none md:rounded-2xl overflow-hidden",
               "md:flex",
               activeTab === "chat" ? "flex" : "hidden",
               transitionClass,
-              // สีพื้นหลังและ border ตามโหมด
               chatMode === "gemini"
                 ? "bg-white/80 border border-violet-100"
                 : "bg-white/80 border border-emerald-100"
@@ -732,7 +736,7 @@ export default function ChatbotPage() {
           {/* Knowledge Base Management */}
           <Card
             className={cn(
-              "flex flex-col h-[75vh] bg-green-50/50 backdrop-blur-sm border border-green-100 shadow-xl rounded-2xl overflow-hidden",
+              "flex flex-col h-[calc(100vh-56px-56px)] md:h-[75vh] bg-green-50/50 backdrop-blur-sm border border-green-100 shadow-xl rounded-none md:rounded-2xl overflow-hidden",
               "md:flex",
               activeTab === "knowledge" ? "flex" : "hidden"
             )}
