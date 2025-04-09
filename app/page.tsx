@@ -606,7 +606,7 @@ export default function ChatbotPage() {
                         : "text-emerald-600 hover:text-emerald-700 border-emerald-200"
                     )}
                   >
-                    Gemini + RAG
+                    Gemini + RAG+
                   </Button>
                 </div>
               </div>
