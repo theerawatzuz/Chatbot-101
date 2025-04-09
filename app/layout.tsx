@@ -36,8 +36,7 @@ export default function RootLayout({
   return (
     <html lang="th" suppressHydrationWarning>
       <body
-        className={`${kanit.variable} ${inter.variable} font-kanit bg-opacity-50 rounded-lg`}
-        style={{ backgroundColor: "rgba(255, 255, 255, 0.5)" }}
+        className={`${kanit.variable} ${inter.variable} font-kanit`}
         suppressHydrationWarning
       >
         <ThemeProvider
@@ -46,9 +45,7 @@ export default function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
-          <div className="bg-white bg-opacity-50 rounded-lg p-6">
-            {children}
-          </div>
+          {children}
         </ThemeProvider>
       </body>
     </html>
