@@ -5,7 +5,7 @@ export async function generateMetadata() {
   const hostname = headersList.get("host") || "";
 
   return {
-    title: hostname.startsWith("talk.") ? "Talk?" : "Just Easy Chat?",
+    title: hostname.startsWith("talk.") ? "Just Easy Talk?" : "Just Easy Chat?",
   };
 }
 
