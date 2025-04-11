@@ -1,4 +1,5 @@
 import { headers } from "next/headers";
+import "@/styles/globals.css";
 
 export async function generateMetadata() {
   const headersList = await headers();
@@ -6,6 +7,11 @@ export async function generateMetadata() {
 
   return {
     title: hostname.startsWith("talk.") ? "Just Easy Talk?" : "Just Easy Chat?",
+    description: "This is the Talk page for Just Easy Chat.",
+    generator: "v1",
+    icons: {
+      icon: "/apple-touch-icon.png",
+    },
   };
 }
 
