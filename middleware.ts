@@ -5,6 +5,11 @@ export function middleware(request: NextRequest) {
   const hostname = request.headers.get("host") || "";
   const path = request.nextUrl.pathname;
 
+  // อนุญาตให้ static assets ผ่านไปได้
+  if (path.startsWith("/_next/") || path.startsWith("/favicon.ico")) {
+    return NextResponse.next();
+  }
+
   // อนุญาตให้เข้าถึง /talk ผ่าน subdomain talk. เท่านั้น
   if (path.startsWith("/talk")) {
     if (!hostname.startsWith("talk.")) {

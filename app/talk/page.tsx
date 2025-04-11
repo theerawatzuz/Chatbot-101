@@ -1,3 +1,14 @@
+import { headers } from "next/headers";
+
+export async function generateMetadata() {
+  const headersList = await headers();
+  const hostname = headersList.get("host") || "";
+
+  return {
+    title: hostname.startsWith("talk.") ? "Talk?" : "Just Easy Chat?",
+  };
+}
+
 export default function TalkPage() {
   return (
     <div>
