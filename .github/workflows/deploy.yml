@@ -11,6 +11,13 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      - name: 📤 Notify Discord - Start Deploy
+        run: |
+          curl -H "Content-Type: application/json" \
+               -X POST \
+               -d "{\"content\": \"⚙️ เริ่มต้น Deploy ใหม่จาก GitHub... \n📦 Repo: $GITHUB_REPOSITORY\n🔁 Commit: $GITHUB_SHA\"}" \
+               ${{ secrets.DISCORD_WEBHOOK }}
+
       - name: 📥 Checkout code
         uses: actions/checkout@v3
 
@@ -33,3 +40,19 @@ jobs:
             docker-compose up -d --build
 
             echo "✅ Deployment complete!"
+
+      - name: ✅ Notify Discord - Success
+        if: success()
+        run: |
+          curl -H "Content-Type: application/json" \
+               -X POST \
+               -d "{\"content\": \"✅ Deployment สำเร็จแล้วบน EC2 🎉 \n📦 Repo: $GITHUB_REPOSITORY\n🔁 Commit: $GITHUB_SHA\"}" \
+               ${{ secrets.DISCORD_WEBHOOK }}
+
+      - name: ❌ Notify Discord - Failure
+        if: failure()
+        run: |
+          curl -H "Content-Type: application/json" \
+               -X POST \
+               -d "{\"content\": \"❌ Deployment ล้มเหลว! \n📦 Repo: $GITHUB_REPOSITORY\n🕵️ ตรวจสอบที่ GitHub Actions logs\"}" \
+               ${{ secrets.DISCORD_WEBHOOK }}
