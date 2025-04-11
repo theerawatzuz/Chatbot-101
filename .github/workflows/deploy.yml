@@ -15,7 +15,7 @@ jobs:
         uses: actions/checkout@v3
 
       - name: 🐧 Connect to EC2 and deploy
-        uses: appleboy/ssh-action@v1.4.0
+        uses: appleboy/ssh-action@v0.1.10
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ${{ secrets.EC2_USER }}
