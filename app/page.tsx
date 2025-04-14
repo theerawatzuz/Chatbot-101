@@ -422,10 +422,6 @@ export default function ChatbotPage() {
             <Skeleton className="h-4 w-32" />
           </div>
         </div>
-        <div className="flex items-center text-xs mt-1 space-x-1 text-gray-500">
-          <Clock className="h-3 w-3" />
-          <span>{formatDate(new Date())}</span>
-        </div>
       </div>
     </div>
   );
