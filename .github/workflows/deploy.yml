@@ -31,15 +31,22 @@ jobs:
             echo "✅ Connected to EC2"
             cd Chatbot-101
             echo "📦 Pulling latest code..."
-            git pull origin main
+            git pull origin main || {
+              echo "❌ Git pull failed"
+              exit 1
+            }
 
-            echo "🧼 Stopping old container..."
-            docker-compose down
+            echo "🧹 Stopping and cleaning up old containers..."
+            docker-compose down --volumes --remove-orphans
 
-            echo "🔁 Rebuilding and starting container..."
-            docker-compose up -d --build
+            echo "🚀 Building and starting new containers..."
+            docker-compose up --build -d
 
-            echo "✅ Deployment complete!"
+            echo "🧽 Cleaning up unused containers, volumes, networks, and images..."
+            docker system prune -a --volumes -f
+
+            echo "✅ Deployment and cleanup complete!"
+            docker ps
 
       - name: ✅ Notify Discord - Success
         if: success()
