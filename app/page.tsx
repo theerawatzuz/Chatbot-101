@@ -167,7 +167,7 @@ export default function ChatbotPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!input.trim()) return;
+    if (!input.trim() || isLoading) return;
 
     const userMessage: Message = {
       id: generateId(),
@@ -185,9 +185,8 @@ export default function ChatbotPage() {
     setInput("");
     setIsLoading(true);
 
-    // Disable input but keep focus
+    // ไม่ต้อง disable input แต่ยังคง focus ไว้
     if (inputRef.current) {
-      inputRef.current.disabled = true;
       inputRef.current.focus();
     }
 
@@ -241,9 +240,9 @@ export default function ChatbotPage() {
       }
     } finally {
       setIsLoading(false);
-      // Re-enable input and focus
+
+      // เมื่อเสร็จสิ้น ให้ focus กลับไปที่ input โดยไม่ต้องทำอะไรกับการ disable
       if (inputRef.current) {
-        inputRef.current.disabled = false;
         inputRef.current.focus();
       }
     }
@@ -706,11 +705,10 @@ export default function ChatbotPage() {
                       ? "bg-white border-violet-200 focus:border-violet-400 placeholder:text-violet-300"
                       : "bg-white border-emerald-200 focus:border-emerald-400 placeholder:text-emerald-300"
                   )}
-                  disabled={isLoading}
                 />
                 <Button
                   type="submit"
-                  disabled={isLoading}
+                  disabled={isLoading || !input.trim()}
                   className={cn(
                     transitionClass,
                     "rounded-full shadow-md",
