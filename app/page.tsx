@@ -472,6 +472,7 @@ export default function ChatbotPage() {
           ? "bg-gradient-to-br from-violet-50 via-white to-violet-100"
           : "bg-gradient-to-br from-violet-50 via-white to-emerald-100"
       )}
+      style={{ height: "100vh", overflow: "hidden" }}
     >
       {/* Background decorative elements */}
       <div className="fixed inset-0 -z-10 overflow-hidden">
