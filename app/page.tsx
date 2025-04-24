@@ -472,7 +472,18 @@ export default function ChatbotPage() {
           ? "bg-gradient-to-br from-violet-50 via-white to-violet-100"
           : "bg-gradient-to-br from-violet-50 via-white to-emerald-100"
       )}
-      style={{ height: "100vh", overflow: "hidden" }}
+      style={{
+        height: "100%",
+        width: "100%",
+        overflow: "hidden",
+        touchAction: "manipulation",
+        WebkitOverflowScrolling: "touch",
+        position: "absolute",
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+      }}
     >
       {/* Background decorative elements */}
       <div className="fixed inset-0 -z-10 overflow-hidden">
@@ -546,7 +557,7 @@ export default function ChatbotPage() {
           {/* Chat Interface */}
           <Card
             className={cn(
-              "flex flex-col h-[calc(100vh-56px-56px)] md:h-[75vh] backdrop-blur-sm shadow-lg rounded-none md:rounded-2xl overflow-hidden",
+              "flex flex-col h-[calc(100vh-56px-56px-env(safe-area-inset-top)-env(safe-area-inset-bottom))] md:h-[75vh] backdrop-blur-sm shadow-lg rounded-none md:rounded-2xl overflow-hidden",
               "md:flex",
               activeTab === "chat" ? "flex" : "hidden",
               transitionClass,
@@ -731,7 +742,7 @@ export default function ChatbotPage() {
           {/* Knowledge Base Management */}
           <Card
             className={cn(
-              "flex flex-col h-[calc(100vh-56px-56px)] md:h-[75vh] bg-green-50/50 backdrop-blur-sm border border-green-100 shadow-xl rounded-none md:rounded-2xl overflow-hidden",
+              "flex flex-col h-[calc(100vh-56px-56px-env(safe-area-inset-top)-env(safe-area-inset-bottom))] md:h-[75vh] bg-green-50/50 backdrop-blur-sm border border-green-100 shadow-xl rounded-none md:rounded-2xl overflow-hidden",
               "md:flex",
               activeTab === "knowledge" ? "flex" : "hidden"
             )}
