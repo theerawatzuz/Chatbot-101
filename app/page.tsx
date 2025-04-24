@@ -463,27 +463,44 @@ export default function ChatbotPage() {
     return () => clearTimeout(timer);
   }, [currentTitle, isDeletingItems, loopNum, typingSpeed]);
 
+  // เพิ่ม useEffect เพื่อตรวจจับ iOS และปรับแต่ง viewport
+  useEffect(() => {
+    // ตรวจสอบว่าเป็น iOS หรือไม่
+    const isIOS =
+      /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+      (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+
+    if (isIOS) {
+      // ปรับค่าสำหรับ iOS โดยเฉพาะ
+      document.documentElement.style.height = `${window.innerHeight}px`;
+
+      // ตั้ง event listener เมื่อมีการหมุนหน้าจอหรือเปลี่ยนขนาด
+      const handleResize = () => {
+        document.documentElement.style.height = `${window.innerHeight}px`;
+      };
+
+      window.addEventListener("resize", handleResize);
+      window.addEventListener("orientationchange", handleResize);
+
+      // ทำงานทันทีเมื่อโหลด
+      setTimeout(handleResize, 100);
+
+      return () => {
+        window.removeEventListener("resize", handleResize);
+        window.removeEventListener("orientationchange", handleResize);
+      };
+    }
+  }, []);
+
   return (
     <div
       className={cn(
-        "flex flex-col min-h-screen",
+        "absolute inset-0 flex flex-col",
         transitionClass,
         chatMode === "gemini"
           ? "bg-gradient-to-br from-violet-50 via-white to-violet-100"
           : "bg-gradient-to-br from-violet-50 via-white to-emerald-100"
       )}
-      style={{
-        height: "100%",
-        width: "100%",
-        overflow: "hidden",
-        touchAction: "manipulation",
-        WebkitOverflowScrolling: "touch",
-        position: "absolute",
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-      }}
     >
       {/* Background decorative elements */}
       <div className="fixed inset-0 -z-10 overflow-hidden">
@@ -557,7 +574,7 @@ export default function ChatbotPage() {
           {/* Chat Interface */}
           <Card
             className={cn(
-              "flex flex-col h-[calc(100vh-56px-56px-env(safe-area-inset-top)-env(safe-area-inset-bottom))] md:h-[75vh] backdrop-blur-sm shadow-lg rounded-none md:rounded-2xl overflow-hidden",
+              "flex flex-col h-[calc(100%-56px-1px)] md:h-[75vh] backdrop-blur-sm shadow-lg rounded-none md:rounded-2xl overflow-hidden",
               "md:flex",
               activeTab === "chat" ? "flex" : "hidden",
               transitionClass,
@@ -742,7 +759,7 @@ export default function ChatbotPage() {
           {/* Knowledge Base Management */}
           <Card
             className={cn(
-              "flex flex-col h-[calc(100vh-56px-56px-env(safe-area-inset-top)-env(safe-area-inset-bottom))] md:h-[75vh] bg-green-50/50 backdrop-blur-sm border border-green-100 shadow-xl rounded-none md:rounded-2xl overflow-hidden",
+              "flex flex-col h-[calc(100%-56px-1px)] md:h-[75vh] bg-green-50/50 backdrop-blur-sm border border-green-100 shadow-xl rounded-none md:rounded-2xl overflow-hidden",
               "md:flex",
               activeTab === "knowledge" ? "flex" : "hidden"
             )}
