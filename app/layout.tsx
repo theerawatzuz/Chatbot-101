@@ -38,17 +38,15 @@ export default function RootLayout({
       <head>
         <meta
           name="viewport"
-          content="width=device-width, initial-scale=1.0, viewport-fit=cover"
+          content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no"
         />
         <meta name="apple-mobile-web-app-capable" content="yes" />
-        <meta
-          name="apple-mobile-web-app-status-bar-style"
-          content="black-translucent"
-        />
+        <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+        <meta name="theme-color" content="#ffffff" />
         <meta name="format-detection" content="telephone=no" />
       </head>
       <body
-        className={`${kanit.variable} ${inter.variable} font-kanit fixed inset-0 overflow-hidden`}
+        className={`${kanit.variable} ${inter.variable} font-kanit ios-viewport ios-safe-padding`}
         suppressHydrationWarning
       >
         <ThemeProvider
@@ -62,24 +60,4 @@ export default function RootLayout({
       </body>
     </html>
   );
-}
-
-import "./globals.css";
-
-/* เพิ่มที่ไฟล์ app/globals.css */
-html, body {
-  height: 100%;
-  width: 100%;
-  position: fixed;
-  overflow: hidden;
-  overscroll-behavior: none;
-  -webkit-overflow-scrolling: touch;
-  touch-action: none;
-}
-
-@supports (-webkit-touch-callout: none) {
-  body {
-    /* สำหรับ iOS โดยเฉพาะ */
-    height: -webkit-fill-available;
-  }
 }

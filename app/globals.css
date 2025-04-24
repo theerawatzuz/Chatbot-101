@@ -87,3 +87,49 @@ body {
   border: 1px solid rgba(255, 255, 255, 0.2);
 }
 
+/* iOS viewport fixes */
+html {
+  height: -webkit-fill-available;
+}
+
+body {
+  height: 100vh;
+  height: -webkit-fill-available;
+  overflow: hidden;
+  position: fixed;
+  width: 100%;
+  touch-action: manipulation;
+  -webkit-touch-callout: none;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: none;
+}
+
+.ios-viewport {
+  height: 100vh;
+  height: -webkit-fill-available;
+  width: 100vw;
+  overflow: hidden;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+}
+
+/* Ensure safe area insets are respected */
+@supports (padding-top: env(safe-area-inset-top)) {
+  .ios-safe-padding {
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
+  }
+
+  .ios-safe-area-top {
+    padding-top: env(safe-area-inset-top);
+  }
+
+  .ios-safe-area-bottom {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+}

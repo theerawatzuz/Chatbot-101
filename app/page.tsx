@@ -471,23 +471,30 @@ export default function ChatbotPage() {
       (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
 
     if (isIOS) {
-      // ปรับค่าสำหรับ iOS โดยเฉพาะ
-      document.documentElement.style.height = `${window.innerHeight}px`;
+      // Fix for iOS full height
+      const setIOSHeight = () => {
+        // ขนาดจริงของ viewport ใน iOS
+        const vh = window.innerHeight * 0.01;
+        document.documentElement.style.setProperty("--vh", `${vh}px`);
 
-      // ตั้ง event listener เมื่อมีการหมุนหน้าจอหรือเปลี่ยนขนาด
-      const handleResize = () => {
+        // ปรับขนาดของ HTML และ body elements
         document.documentElement.style.height = `${window.innerHeight}px`;
+        document.body.style.height = `${window.innerHeight}px`;
       };
 
-      window.addEventListener("resize", handleResize);
-      window.addEventListener("orientationchange", handleResize);
+      // รัน function ครั้งแรก
+      setIOSHeight();
 
-      // ทำงานทันทีเมื่อโหลด
-      setTimeout(handleResize, 100);
+      // ตั้ง event listeners
+      window.addEventListener("resize", setIOSHeight);
+      window.addEventListener("orientationchange", () => {
+        // รอให้การหมุนหน้าจอเสร็จสมบูรณ์
+        setTimeout(setIOSHeight, 300);
+      });
 
       return () => {
-        window.removeEventListener("resize", handleResize);
-        window.removeEventListener("orientationchange", handleResize);
+        window.removeEventListener("resize", setIOSHeight);
+        window.removeEventListener("orientationchange", setIOSHeight);
       };
     }
   }, []);
@@ -495,12 +502,15 @@ export default function ChatbotPage() {
   return (
     <div
       className={cn(
-        "absolute inset-0 flex flex-col",
+        "ios-viewport flex flex-col",
         transitionClass,
         chatMode === "gemini"
           ? "bg-gradient-to-br from-violet-50 via-white to-violet-100"
           : "bg-gradient-to-br from-violet-50 via-white to-emerald-100"
       )}
+      style={{
+        height: "calc(var(--vh, 1vh) * 100)",
+      }}
     >
       {/* Background decorative elements */}
       <div className="fixed inset-0 -z-10 overflow-hidden">
@@ -574,7 +584,7 @@ export default function ChatbotPage() {
           {/* Chat Interface */}
           <Card
             className={cn(
-              "flex flex-col h-[calc(100%-56px-1px)] md:h-[75vh] backdrop-blur-sm shadow-lg rounded-none md:rounded-2xl overflow-hidden",
+              "flex flex-col h-[calc(var(--vh, 1vh)*100 - 112px)] md:h-[75vh] backdrop-blur-sm shadow-lg rounded-none md:rounded-2xl overflow-hidden",
               "md:flex",
               activeTab === "chat" ? "flex" : "hidden",
               transitionClass,
@@ -699,7 +709,7 @@ export default function ChatbotPage() {
 
             <div
               className={cn(
-                "mt-auto p-4 border-t",
+                "mt-auto p-4 border-t ios-safe-area-bottom",
                 transitionClass,
                 chatMode === "gemini"
                   ? "bg-violet-50/50 border-violet-100"
@@ -759,7 +769,7 @@ export default function ChatbotPage() {
           {/* Knowledge Base Management */}
           <Card
             className={cn(
-              "flex flex-col h-[calc(100%-56px-1px)] md:h-[75vh] bg-green-50/50 backdrop-blur-sm border border-green-100 shadow-xl rounded-none md:rounded-2xl overflow-hidden",
+              "flex flex-col h-[calc(var(--vh, 1vh)*100 - 112px)] md:h-[75vh] bg-green-50/50 backdrop-blur-sm border border-green-100 shadow-xl rounded-none md:rounded-2xl overflow-hidden",
               "md:flex",
               activeTab === "knowledge" ? "flex" : "hidden"
             )}
