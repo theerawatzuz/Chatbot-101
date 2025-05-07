@@ -26,67 +26,6 @@ import { useSpring, animated } from "@react-spring/web";
 import { useDrag } from "@use-gesture/react";
 import { motion, AnimatePresence } from "framer-motion";
 import ReactMarkdown from "react-markdown";
-import Head from "next/head";
-import Script from "next/script";
-
-// Add necessary CSS for safe area insets
-const safeAreaCss = `
-:root {
-  --sat: env(safe-area-inset-top);
-  --sar: env(safe-area-inset-right);
-  --sab: env(safe-area-inset-bottom);
-  --sal: env(safe-area-inset-left);
-}
-
-body {
-  padding: var(--sat) var(--sar) var(--sab) var(--sal);
-  overscroll-behavior: none;
-  position: fixed;
-  left: 0;
-  top: 0;
-  right: 0;
-  bottom: 0;
-  overflow: hidden;
-  width: 100vw;
-  height: 100vh;
-  height: -webkit-fill-available;
-}
-
-html {
-  height: 100vh;
-  height: -webkit-fill-available;
-  overscroll-behavior: none;
-}
-
-.pb-safe {
-  padding-bottom: calc(1rem + var(--sab));
-}
-
-.ios-safe-area-bottom {
-  padding-bottom: calc(1rem + var(--sab));
-}
-
-.chat-container {
-  position: absolute;
-  left: 0;
-  top: 0;
-  right: 0;
-  bottom: 0;
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-  overflow: hidden;
-}
-
-@media (max-width: 767px) {
-  .mobile-full {
-    height: 100% !important;
-    max-height: 100% !important;
-    display: flex;
-    flex-direction: column;
-  }
-}
-`;
 
 interface Message {
   id: string;
@@ -531,168 +470,48 @@ export default function ChatbotPage() {
       /iPad|iPhone|iPod/.test(navigator.userAgent) ||
       (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
 
-    // Fix for all mobile devices, not just iOS
-    const setMobileHeight = () => {
-      // ขนาดจริงของ viewport
-      const vh = window.innerHeight * 0.01;
-      document.documentElement.style.setProperty("--vh", `${vh}px`);
-
-      // ปรับขนาดของ HTML และ body elements
-      document.documentElement.style.height = `${window.innerHeight}px`;
-      document.body.style.height = `${window.innerHeight}px`;
-    };
-
-    // รัน function ครั้งแรก
-    setMobileHeight();
-
-    // ตั้ง event listeners
-    window.addEventListener("resize", setMobileHeight);
-    window.addEventListener("orientationchange", () => {
-      // รอให้การหมุนหน้าจอเสร็จสมบูรณ์
-      setTimeout(setMobileHeight, 300);
-    });
-
-    // แก้ปัญหาเมื่อมีการโหลดหน้าเพจใหม่
-    window.addEventListener("load", setMobileHeight);
-
-    // แก้ปัญหาเมื่อ keyboard เปิดปิด (focus/blur บน input)
-    if (inputRef.current) {
-      inputRef.current.addEventListener("focus", () =>
-        setTimeout(setMobileHeight, 100)
-      );
-      inputRef.current.addEventListener("blur", () =>
-        setTimeout(setMobileHeight, 100)
-      );
-    }
-
-    return () => {
-      window.removeEventListener("resize", setMobileHeight);
-      window.removeEventListener("orientationchange", setMobileHeight);
-      window.removeEventListener("load", setMobileHeight);
-      if (inputRef.current) {
-        inputRef.current.removeEventListener("focus", () =>
-          setTimeout(setMobileHeight, 100)
-        );
-        inputRef.current.removeEventListener("blur", () =>
-          setTimeout(setMobileHeight, 100)
-        );
-      }
-    };
-  }, []);
-
-  // เพิ่ม useEffect สำหรับ keyboard ที่อาจทำให้ viewport เปลี่ยน
-  useEffect(() => {
-    const handleVisibilityChange = () => {
-      if (!document.hidden) {
-        // เมื่อกลับมาที่แอพอีกครั้ง ให้รีเซ็ต viewport
+    if (isIOS) {
+      // Fix for iOS full height
+      const setIOSHeight = () => {
+        // ขนาดจริงของ viewport ใน iOS
         const vh = window.innerHeight * 0.01;
         document.documentElement.style.setProperty("--vh", `${vh}px`);
-      }
-    };
 
-    document.addEventListener("visibilitychange", handleVisibilityChange);
+        // ปรับขนาดของ HTML และ body elements
+        document.documentElement.style.height = `${window.innerHeight}px`;
+        document.body.style.height = `${window.innerHeight}px`;
+      };
 
-    return () => {
-      document.removeEventListener("visibilitychange", handleVisibilityChange);
-    };
-  }, []);
+      // รัน function ครั้งแรก
+      setIOSHeight();
 
-  // เพิ่ม useEffect เพื่อปรับความสูงแบบ manual สำหรับ iOS
-  useEffect(() => {
-    // ปรับความสูงให้ถูกต้องบน iOS และ Android
-    const adjustCardHeights = () => {
-      const isMobile = window.innerWidth < 768;
-      const headerHeight = isMobile ? 80 : 112; // ลดความสูงของ header บนมือถือ
-      const tabsHeight = isMobile ? 48 : 0; // ความสูงของ tabs เฉพาะบนมือถือ
-      const totalHeight = window.innerHeight - headerHeight - tabsHeight;
+      // ตั้ง event listeners
+      window.addEventListener("resize", setIOSHeight);
+      window.addEventListener("orientationchange", () => {
+        // รอให้การหมุนหน้าจอเสร็จสมบูรณ์
+        setTimeout(setIOSHeight, 300);
+      });
 
-      // ตั้งค่า custom property สำหรับความสูงของ card
-      document.documentElement.style.setProperty(
-        "--card-height",
-        `${totalHeight}px`
-      );
-    };
-
-    adjustCardHeights();
-    window.addEventListener("resize", adjustCardHeights);
-    window.addEventListener("orientationchange", () => {
-      setTimeout(adjustCardHeights, 300);
-    });
-
-    return () => {
-      window.removeEventListener("resize", adjustCardHeights);
-      window.removeEventListener("orientationchange", adjustCardHeights);
-    };
+      return () => {
+        window.removeEventListener("resize", setIOSHeight);
+        window.removeEventListener("orientationchange", setIOSHeight);
+      };
+    }
   }, []);
 
   return (
     <div
       className={cn(
-        "ios-viewport flex flex-col h-screen overflow-hidden mobile-full chat-container chat-container-inner",
+        "ios-viewport flex flex-col",
         transitionClass,
         chatMode === "gemini"
           ? "bg-gradient-to-br from-violet-50 via-white to-violet-100"
           : "bg-gradient-to-br from-violet-50 via-white to-emerald-100"
       )}
       style={{
-        height: "var(--real-100vh, 100vh)",
-        maxHeight: "-webkit-fill-available",
+        height: "calc(var(--vh, 1vh) * 100)",
       }}
     >
-      {/* Head component สำหรับเพิ่ม meta tag */}
-      <Head>
-        <meta
-          name="viewport"
-          content="width=device-width, initial-scale=1, viewport-fit=cover"
-        />
-        <style>{safeAreaCss}</style>
-      </Head>
-
-      {/* Script สำหรับจัดการกับ iOS safe area */}
-      <Script id="ios-safe-area-fix" strategy="afterInteractive">
-        {`
-          (function() {
-            function setViewportProperty() {
-              // ปรับความสูงทั้งหมด
-              const vh = window.innerHeight * 0.01;
-              document.documentElement.style.setProperty('--vh', \`\${vh}px\`);
-              
-              // Fix iOS 100vh issue
-              document.documentElement.style.setProperty('--real-vh', \`\${window.innerHeight}px\`);
-              document.documentElement.style.setProperty('--real-100vh', \`\${window.innerHeight}px\`);
-              
-              // ปรับความสูงของ main container
-              document.querySelector('.chat-container-inner')?.style.setProperty('height', \`\${window.innerHeight}px\`);
-            }
-            
-            // ทำงานเมื่อโหลดครั้งแรก
-            setViewportProperty();
-            
-            // ทำงานเมื่อขนาดหน้าจอเปลี่ยน
-            window.addEventListener('resize', setViewportProperty);
-            window.addEventListener('orientationchange', () => {
-              setTimeout(setViewportProperty, 300);
-            });
-            
-            // ทำงานเมื่อโหลดหน้าเสร็จ
-            window.addEventListener('load', setViewportProperty);
-            
-            // ทำงานเมื่อ keyboard เปิด/ปิด (ทดลองจับ input focus events)
-            document.addEventListener('focusin', (e) => {
-              if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {
-                setTimeout(setViewportProperty, 100);
-              }
-            });
-            
-            document.addEventListener('focusout', (e) => {
-              if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {
-                setTimeout(setViewportProperty, 100);
-              }
-            });
-          })();
-        `}
-      </Script>
-
       {/* Background decorative elements */}
       <div className="fixed inset-0 -z-10 overflow-hidden">
         <div className="absolute -top-40 -right-40 w-80 h-80 bg-purple-200 rounded-full opacity-20 blur-3xl"></div>
@@ -700,8 +519,8 @@ export default function ChatbotPage() {
         <div className="absolute -bottom-20 right-1/3 w-72 h-72 bg-pink-200 rounded-full opacity-20 blur-3xl"></div>
       </div>
 
-      <header className="py-2 md:py-6 px-4 md:px-8 flex-shrink-0">
-        <h1 className="text-lg md:text-2xl font-semibold text-center">
+      <header className="py-3 md:py-6 px-4 md:px-8">
+        <h1 className="text-xl md:text-2xl font-semibold text-center">
           Just{" "}
           <motion.span
             key={loopNum}
@@ -730,15 +549,15 @@ export default function ChatbotPage() {
             </motion.span>
           </motion.span>
         </h1>
-        <p className="text-xs md:text-sm text-center text-gray-500 mt-0.5">
+        <p className="text-xs md:text-sm text-center text-gray-500 mt-0.5 md:mt-1">
           latest data collection:{" "}
           {latestDate ? formatDate(latestDate) : "ยังไม่มีข้อมูล"}
         </p>
       </header>
 
-      <main className="flex-1 p-0 md:p-8 max-w-6xl mx-auto w-full flex flex-col overflow-hidden">
+      <main className="flex-1 p-0 md:p-8 max-w-6xl mx-auto w-full">
         {/* Mobile Tab Switcher */}
-        <div className="md:hidden flex-shrink-0 sticky top-0 z-10 bg-white/80 backdrop-blur-sm">
+        <div className="md:hidden mb-0">
           <Tabs
             defaultValue="chat"
             onValueChange={(value) =>
@@ -761,18 +580,17 @@ export default function ChatbotPage() {
           </Tabs>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-0 md:gap-6 flex-1 min-h-0">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-0 md:gap-6">
           {/* Chat Interface */}
           <Card
             className={cn(
-              "flex flex-col backdrop-blur-sm shadow-lg rounded-none md:rounded-2xl overflow-hidden h-full",
-              "md:flex md:h-[75vh]",
+              "flex flex-col h-[calc(var(--vh, 1vh)*100 - 112px)] md:h-[75vh] backdrop-blur-sm shadow-lg rounded-none md:rounded-2xl overflow-hidden",
+              "md:flex",
               activeTab === "chat" ? "flex" : "hidden",
               transitionClass,
               chatMode === "gemini"
                 ? "bg-white/80 border border-violet-100"
-                : "bg-white/80 border border-emerald-100",
-              "pb-safe" // เพิ่ม padding ด้านล่างสำหรับ iOS safe area
+                : "bg-white/80 border border-emerald-100"
             )}
           >
             <div
@@ -897,9 +715,6 @@ export default function ChatbotPage() {
                   ? "bg-violet-50/50 border-violet-100"
                   : "bg-gradient-to-r from-violet-50/50 to-emerald-50/50 border-emerald-100"
               )}
-              style={{
-                paddingBottom: "calc(1rem + env(safe-area-inset-bottom, 0px))",
-              }}
             >
               <form onSubmit={handleSubmit} className="flex gap-2">
                 <Button
@@ -954,8 +769,8 @@ export default function ChatbotPage() {
           {/* Knowledge Base Management */}
           <Card
             className={cn(
-              "flex flex-col bg-green-50/50 backdrop-blur-sm border border-green-100 shadow-xl rounded-none md:rounded-2xl overflow-hidden h-full",
-              "md:flex md:h-[75vh]",
+              "flex flex-col h-[calc(var(--vh, 1vh)*100 - 112px)] md:h-[75vh] bg-green-50/50 backdrop-blur-sm border border-green-100 shadow-xl rounded-none md:rounded-2xl overflow-hidden",
+              "md:flex",
               activeTab === "knowledge" ? "flex" : "hidden"
             )}
           >

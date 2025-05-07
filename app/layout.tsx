@@ -20,22 +20,12 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "Easy Chat",
-  description: "แชทบอท AI และ RAG ที่เรียบง่ายและใช้งานได้ดี",
+  title: "Just Easy Chat?",
+  description: "A minimalist RAG chatbot with database integration",
   generator: "v1",
-  viewport:
-    "width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no",
-  themeColor: "#ffffff",
-  appleWebApp: {
-    title: "Easy Chat",
-    statusBarStyle: "default",
-    capable: true,
-  },
   icons: {
-    icon: "/apple-touch-icon.png",
-    apple: "/apple-touch-icon.png",
+    icon: "./apple-touch-icon.png",
   },
-  manifest: "/manifest.json",
 };
 
 export default function RootLayout({
@@ -46,18 +36,17 @@ export default function RootLayout({
   return (
     <html lang="th" suppressHydrationWarning>
       <head>
-        <meta name="format-detection" content="telephone=no" />
-        <meta name="mobile-web-app-capable" content="yes" />
-        <meta name="application-name" content="Easy Chat" />
-        <link rel="shortcut icon" href="/favicon.ico" />
-        <link
-          rel="apple-touch-icon"
-          sizes="180x180"
-          href="/apple-touch-icon.png"
+        <meta
+          name="viewport"
+          content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no"
         />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+        <meta name="theme-color" content="#ffffff" />
+        <meta name="format-detection" content="telephone=no" />
       </head>
       <body
-        className={`${kanit.variable} ${inter.variable} font-kanit antialiased ios-safe-padding`}
+        className={`${kanit.variable} ${inter.variable} font-kanit ios-viewport ios-safe-padding`}
         suppressHydrationWarning
       >
         <ThemeProvider
