@@ -77,6 +77,9 @@ export default function ChatbotPage() {
   const [loopNum, setLoopNum] = useState(0);
   const [typingSpeed, setTypingSpeed] = useState(150);
   const inputRef = useRef<HTMLInputElement>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
+  const [isKeyboardOpen, setIsKeyboardOpen] = useState(false);
+  const [isDesktop, setIsDesktop] = useState(false);
 
   // เพิ่ม transition class
   const transitionClass = "transition-all duration-300 ease-in-out";
@@ -278,11 +281,11 @@ export default function ChatbotPage() {
     // scroll ลงล่างเมื่อมีข้อความใหม่หรือกำลังโหลด
     if (messagesEndRef.current) {
       messagesEndRef.current.scrollIntoView({
-        behavior: "smooth",
+        behavior: isKeyboardOpen ? "auto" : "smooth",
         block: "end",
       });
     }
-  }, [geminiMessages, ragMessages, isLoading]); // เพิ่ม dependency ให้ทำงานเมื่อมีการเปลี่ยนแปลงข้อความหรือสถานะ loading
+  }, [geminiMessages, ragMessages, isLoading, isKeyboardOpen]); // เพิ่ม dependency
 
   // Add document to knowledge base
   const handleDatabaseSubmit = async (e: React.FormEvent) => {
@@ -499,6 +502,130 @@ export default function ChatbotPage() {
     }
   }, []);
 
+  useEffect(() => {
+    // ฟังก์ชันจัดการแป้นพิมพ์บนมือถือ
+    const handleKeyboardVisibility = () => {
+      // ดึงค่าความสูงของหน้าจอและ visual viewport
+      const windowHeight = window.innerHeight;
+      const viewportHeight = window.visualViewport?.height || windowHeight;
+
+      // คำนวณความสูงของแป้นพิมพ์
+      const keyboardHeight = Math.max(0, windowHeight - viewportHeight);
+
+      // ตรวจสอบว่าแป้นพิมพ์เปิดอยู่หรือไม่ (ความสูงมากกว่า 150px)
+      const isKeyboardVisible = keyboardHeight > 150;
+
+      // ตั้งค่าตัวแปร CSS สำหรับความสูงของแป้นพิมพ์
+      document.documentElement.style.setProperty(
+        "--keyboard-height",
+        `${keyboardHeight}px`
+      );
+
+      // อัปเดตสถานะและคลาส
+      setIsKeyboardOpen(isKeyboardVisible);
+
+      if (isKeyboardVisible) {
+        document.body.classList.add("keyboard-open");
+
+        // เลื่อนไปยัง input field หลังจากแป้นพิมพ์เปิด
+        setTimeout(() => {
+          inputRef.current?.scrollIntoView({
+            behavior: "smooth",
+            block: "center",
+          });
+          // เลื่อนข้อความไปที่ล่างสุด
+          if (messagesContainerRef.current) {
+            messagesContainerRef.current.scrollTop =
+              messagesContainerRef.current.scrollHeight;
+          }
+        }, 300);
+      } else {
+        document.body.classList.remove("keyboard-open");
+
+        // เลื่อนกลับไปที่ข้อความล่าสุดเมื่อปิดแป้นพิมพ์
+        setTimeout(() => {
+          if (messagesEndRef.current) {
+            messagesEndRef.current.scrollIntoView({
+              behavior: "smooth",
+              block: "end",
+            });
+          }
+        }, 300);
+      }
+    };
+
+    // ตั้งค่า event listeners สำหรับการเปลี่ยนแปลงของ visual viewport
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener(
+        "resize",
+        handleKeyboardVisibility
+      );
+      window.visualViewport.addEventListener(
+        "scroll",
+        handleKeyboardVisibility
+      );
+    }
+
+    // ตั้งค่า event listeners สำหรับ input focus/blur
+    const handleInputFocus = () => {
+      // เปิดแป้นพิมพ์จะทำให้เกิด focus event
+      setTimeout(handleKeyboardVisibility, 100);
+    };
+
+    const handleInputBlur = () => {
+      // ปิดแป้นพิมพ์จะทำให้เกิด blur event
+      setTimeout(() => {
+        setIsKeyboardOpen(false);
+        document.body.classList.remove("keyboard-open");
+      }, 100);
+    };
+
+    if (inputRef.current) {
+      inputRef.current.addEventListener("focus", handleInputFocus);
+      inputRef.current.addEventListener("blur", handleInputBlur);
+    }
+
+    // ตรวจสอบครั้งแรก
+    handleKeyboardVisibility();
+
+    // ทำความสะอาด event listeners เมื่อ component unmount
+    return () => {
+      if (window.visualViewport) {
+        window.visualViewport.removeEventListener(
+          "resize",
+          handleKeyboardVisibility
+        );
+        window.visualViewport.removeEventListener(
+          "scroll",
+          handleKeyboardVisibility
+        );
+      }
+
+      if (inputRef.current) {
+        inputRef.current.removeEventListener("focus", handleInputFocus);
+        inputRef.current.removeEventListener("blur", handleInputBlur);
+      }
+    };
+  }, []);
+
+  // เพิ่ม useEffect เพื่อตรวจสอบว่าเป็น desktop หรือไม่
+  useEffect(() => {
+    const checkIfDesktop = () => {
+      setIsDesktop(window.innerWidth >= 768);
+    };
+
+    // ตรวจสอบครั้งแรก
+    checkIfDesktop();
+
+    // ตั้งค่า event listener
+    window.addEventListener("resize", checkIfDesktop);
+
+    // cleanup
+    return () => {
+      window.removeEventListener("resize", checkIfDesktop);
+    };
+  }, []);
+
   return (
     <div
       className={cn(
@@ -557,12 +684,13 @@ export default function ChatbotPage() {
 
       <main className="flex-1 p-0 md:p-8 max-w-6xl mx-auto w-full">
         {/* Mobile Tab Switcher */}
-        <div className="md:hidden mb-0">
+        <div className="md:hidden mb-0 mobile-tabs">
           <Tabs
-            defaultValue="chat"
-            onValueChange={(value) =>
-              setActiveTab(value as "chat" | "knowledge")
-            }
+            value={activeTab}
+            onValueChange={(value) => {
+              console.log("Tab changed to:", value);
+              setActiveTab(value as "chat" | "knowledge");
+            }}
           >
             <TabsList className="grid w-full grid-cols-2 rounded-none">
               <TabsTrigger value="chat" className="flex items-center gap-2">
@@ -582,89 +710,95 @@ export default function ChatbotPage() {
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-0 md:gap-6">
           {/* Chat Interface */}
-          <Card
-            className={cn(
-              "flex flex-col h-[calc(var(--vh, 1vh)*100 - 112px)] md:h-[75vh] backdrop-blur-sm shadow-lg rounded-none md:rounded-2xl overflow-hidden",
-              "md:flex",
-              activeTab === "chat" ? "flex" : "hidden",
-              transitionClass,
-              chatMode === "gemini"
-                ? "bg-white/80 border border-violet-100"
-                : "bg-white/80 border border-emerald-100"
-            )}
-          >
-            <div
+          {(activeTab === "chat" || isDesktop) && (
+            <Card
+              key="chat-card"
               className={cn(
-                "p-4 border-b",
+                "flex flex-col h-[calc(var(--vh, 1vh)*100 - 112px)] md:h-[75vh] backdrop-blur-sm shadow-lg rounded-none md:rounded-2xl overflow-hidden full-height-card",
+                "md:flex",
                 transitionClass,
                 chatMode === "gemini"
-                  ? "bg-violet-50/50 border-violet-100"
-                  : "bg-gradient-to-r from-violet-50/50 to-emerald-50/50 border-emerald-100"
+                  ? "bg-white/80 border border-violet-100"
+                  : "bg-white/80 border border-emerald-100"
               )}
             >
-              <div className="flex justify-between items-center">
-                <div>
-                  <h2 className="text-lg font-medium text-gray-800">แชท</h2>
-                  <p
-                    className={cn(
-                      "text-xs",
-                      transitionClass,
-                      chatMode === "gemini"
-                        ? "text-violet-500"
-                        : "text-emerald-600"
-                    )}
-                  >
-                    by Gemini 2.0 flash
-                  </p>
-                </div>
-                <div className="flex gap-2 items-center">
-                  <Button
-                    variant={chatMode === "gemini" ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => setChatMode("gemini")}
-                    className={cn(
-                      transitionClass,
-                      "rounded-full",
-                      chatMode === "gemini"
-                        ? "bg-violet-500 hover:bg-violet-600 text-white shadow-md"
-                        : "text-violet-500 hover:text-violet-600 border-violet-200"
-                    )}
-                  >
-                    Gemini
-                  </Button>
-                  <Button
-                    variant={chatMode === "rag" ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => setChatMode("rag")}
-                    className={cn(
-                      transitionClass,
-                      "rounded-full",
-                      chatMode === "rag"
-                        ? "bg-gradient-to-r from-violet-500 to-emerald-500 hover:from-violet-600 hover:to-emerald-600 text-white shadow-md"
-                        : "text-emerald-600 hover:text-emerald-700 border-emerald-200"
-                    )}
-                  >
-                    Gemini + RAG
-                  </Button>
-                </div>
-              </div>
-            </div>
-
-            <div className="flex-1 min-h-0 overflow-auto p-6">
-              <div className="space-y-6">
-                {(chatMode === "gemini" ? geminiMessages : ragMessages)
-                  .length === 0 ? (
-                  <div className="text-center py-10">
-                    <p className="text-gray-400">
-                      {chatMode === "gemini"
-                        ? "เริ่มการสนทนากับ Gemini"
-                        : "เริ่มการสนทนากับ Gemini + RAG"}
+              <div
+                className={cn(
+                  "p-4 border-b",
+                  transitionClass,
+                  chatMode === "gemini"
+                    ? "bg-violet-50/50 border-violet-100"
+                    : "bg-gradient-to-r from-violet-50/50 to-emerald-50/50 border-emerald-100"
+                )}
+              >
+                <div className="flex justify-between items-center">
+                  <div>
+                    <h2 className="text-lg font-medium text-gray-800">แชท</h2>
+                    <p
+                      className={cn(
+                        "text-xs",
+                        transitionClass,
+                        chatMode === "gemini"
+                          ? "text-violet-500"
+                          : "text-emerald-600"
+                      )}
+                    >
+                      by Gemini 2.0 flash
                     </p>
                   </div>
-                ) : (
-                  <>
-                    {(chatMode === "gemini" ? geminiMessages : ragMessages).map(
-                      (message) => (
+                  <div className="flex gap-2 items-center">
+                    <Button
+                      variant={chatMode === "gemini" ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => setChatMode("gemini")}
+                      className={cn(
+                        transitionClass,
+                        "rounded-full",
+                        chatMode === "gemini"
+                          ? "bg-violet-500 hover:bg-violet-600 text-white shadow-md"
+                          : "text-violet-500 hover:text-violet-600 border-violet-200"
+                      )}
+                    >
+                      Gemini
+                    </Button>
+                    <Button
+                      variant={chatMode === "rag" ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => setChatMode("rag")}
+                      className={cn(
+                        transitionClass,
+                        "rounded-full",
+                        chatMode === "rag"
+                          ? "bg-gradient-to-r from-violet-500 to-emerald-500 hover:from-violet-600 hover:to-emerald-600 text-white shadow-md"
+                          : "text-emerald-600 hover:text-emerald-700 border-emerald-200"
+                      )}
+                    >
+                      Gemini + RAG
+                    </Button>
+                  </div>
+                </div>
+              </div>
+
+              <div
+                className="flex-1 min-h-0 overflow-auto p-6 messages-container chat-content"
+                ref={messagesContainerRef}
+              >
+                <div className="space-y-6">
+                  {(chatMode === "gemini" ? geminiMessages : ragMessages)
+                    .length === 0 ? (
+                    <div className="text-center py-10">
+                      <p className="text-gray-400">
+                        {chatMode === "gemini"
+                          ? "เริ่มการสนทนากับ Gemini"
+                          : "เริ่มการสนทนากับ Gemini + RAG"}
+                      </p>
+                    </div>
+                  ) : (
+                    <>
+                      {(chatMode === "gemini"
+                        ? geminiMessages
+                        : ragMessages
+                      ).map((message) => (
                         <div
                           key={message.id}
                           className={`flex ${
@@ -698,179 +832,184 @@ export default function ChatbotPage() {
                             ></div>
                           </div>
                         </div>
-                      )
-                    )}
-                    {isLoading && <ResponseMessageSkeleton />}
-                  </>
-                )}
-                <div ref={messagesEndRef} className="h-px" />
+                      ))}
+                      {isLoading && <ResponseMessageSkeleton />}
+                    </>
+                  )}
+                  <div ref={messagesEndRef} className="h-px" />
+                </div>
               </div>
-            </div>
 
-            <div
-              className={cn(
-                "mt-auto p-4 border-t ios-safe-area-bottom",
-                transitionClass,
-                chatMode === "gemini"
-                  ? "bg-violet-50/50 border-violet-100"
-                  : "bg-gradient-to-r from-violet-50/50 to-emerald-50/50 border-emerald-100"
-              )}
-            >
-              <form onSubmit={handleSubmit} className="flex gap-2">
-                <Button
-                  type="button"
-                  size="icon"
-                  onClick={clearHistory}
-                  className={cn(
-                    transitionClass,
-                    "rounded-full",
-                    chatMode === "gemini"
-                      ? "bg-violet-100 hover:bg-violet-200 text-violet-600"
-                      : "bg-emerald-100 hover:bg-emerald-200 text-emerald-600"
-                  )}
-                  title="เริ่มการสนทนาใหม่"
-                >
-                  <RotateCcw className="h-4 w-4" />
-                </Button>
-                <Input
-                  ref={inputRef}
-                  value={input}
-                  onChange={(e) => setInput(e.target.value)}
-                  placeholder="พิมพ์ข้อความของคุณ..."
-                  className={cn(
-                    "flex-1 rounded-full",
-                    transitionClass,
-                    chatMode === "gemini"
-                      ? "bg-white border-violet-200 focus:border-violet-400 placeholder:text-violet-300"
-                      : "bg-white border-emerald-200 focus:border-emerald-400 placeholder:text-emerald-300"
-                  )}
-                />
-                <Button
-                  type="submit"
-                  disabled={isLoading || !input.trim()}
-                  className={cn(
-                    transitionClass,
-                    "rounded-full shadow-md",
-                    chatMode === "gemini"
-                      ? "bg-violet-500 hover:bg-violet-600"
-                      : "bg-gradient-to-r from-violet-500 to-emerald-500 hover:from-violet-600 hover:to-emerald-600"
-                  )}
-                >
-                  {isLoading ? (
-                    <div className="h-5 w-5 animate-spin rounded-full border-2 border-white border-t-transparent" />
-                  ) : (
-                    <Send className="h-4 w-4" />
-                  )}
-                </Button>
-              </form>
-            </div>
-          </Card>
+              <div
+                className={cn(
+                  "mt-auto p-4 border-t ios-safe-area-bottom input-container fixed-footer",
+                  transitionClass,
+                  chatMode === "gemini"
+                    ? "bg-violet-50/50 border-violet-100"
+                    : "bg-gradient-to-r from-violet-50/50 to-emerald-50/50 border-emerald-100"
+                )}
+              >
+                <form onSubmit={handleSubmit} className="flex gap-2">
+                  <Button
+                    type="button"
+                    size="icon"
+                    onClick={clearHistory}
+                    className={cn(
+                      transitionClass,
+                      "rounded-full",
+                      chatMode === "gemini"
+                        ? "bg-violet-100 hover:bg-violet-200 text-violet-600"
+                        : "bg-emerald-100 hover:bg-emerald-200 text-emerald-600"
+                    )}
+                    title="เริ่มการสนทนาใหม่"
+                  >
+                    <RotateCcw className="h-4 w-4" />
+                  </Button>
+                  <Input
+                    ref={inputRef}
+                    value={input}
+                    onChange={(e) => setInput(e.target.value)}
+                    placeholder="พิมพ์ข้อความของคุณ..."
+                    className={cn(
+                      "flex-1 rounded-full",
+                      transitionClass,
+                      chatMode === "gemini"
+                        ? "bg-white border-violet-200 focus:border-violet-400 placeholder:text-violet-300"
+                        : "bg-white border-emerald-200 focus:border-emerald-400 placeholder:text-emerald-300"
+                    )}
+                  />
+                  <Button
+                    type="submit"
+                    disabled={isLoading || !input.trim()}
+                    className={cn(
+                      transitionClass,
+                      "rounded-full shadow-md",
+                      chatMode === "gemini"
+                        ? "bg-violet-500 hover:bg-violet-600"
+                        : "bg-gradient-to-r from-violet-500 to-emerald-500 hover:from-violet-600 hover:to-emerald-600"
+                    )}
+                  >
+                    {isLoading ? (
+                      <div className="h-5 w-5 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                    ) : (
+                      <Send className="h-4 w-4" />
+                    )}
+                  </Button>
+                </form>
+              </div>
+            </Card>
+          )}
 
           {/* Knowledge Base Management */}
-          <Card
-            className={cn(
-              "flex flex-col h-[calc(var(--vh, 1vh)*100 - 112px)] md:h-[75vh] bg-green-50/50 backdrop-blur-sm border border-green-100 shadow-xl rounded-none md:rounded-2xl overflow-hidden",
-              "md:flex",
-              activeTab === "knowledge" ? "flex" : "hidden"
-            )}
-          >
-            <div className="p-4 border-b border-green-100 bg-green-50/70 flex justify-between items-center">
-              <div>
-                <h2 className="text-lg font-medium text-green-900 flex items-center gap-2">
-                  <Database className="h-4 w-4 text-green-700" />
-                  ฐานข้อมูล
-                </h2>
-                <p className="text-sm text-green-700">
-                  Please remember if trash in also trash out!
-                </p>
+          {(activeTab === "knowledge" || isDesktop) && (
+            <Card
+              key="knowledge-card"
+              className={cn(
+                "flex flex-col h-[calc(var(--vh, 1vh)*100 - 112px)] md:h-[75vh] bg-green-50/50 backdrop-blur-sm border border-green-100 shadow-xl rounded-none md:rounded-2xl overflow-hidden full-height-card",
+                "md:flex",
+                transitionClass
+              )}
+            >
+              <div className="p-4 border-b border-green-100 bg-green-50/70 flex justify-between items-center">
+                <div>
+                  <h2 className="text-lg font-medium text-green-900 flex items-center gap-2">
+                    <Database className="h-4 w-4 text-green-700" />
+                    ฐานข้อมูล
+                  </h2>
+                  <p className="text-sm text-green-700">
+                    Please remember if trash in also trash out!
+                  </p>
+                </div>
               </div>
-            </div>
 
-            <div className="flex-1 min-h-0 overflow-auto p-4 bg-green-50/30">
-              {isInitialLoading ? (
-                <div className="space-y-3">
-                  {[...Array(3)].map((_, i) => (
-                    <KnowledgeItemSkeleton key={i} />
-                  ))}
-                </div>
-              ) : knowledgeBase.length === 0 ? (
-                <div className="text-center py-10">
-                  <p className="text-green-700">ยังไม่มีข้อมูลในฐานข้อมูล</p>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {knowledgeBase.map((item) => (
-                    <div
-                      key={`${item.id}-${new Date(item.timestamp).getTime()}`}
-                      className="rounded-lg overflow-hidden"
-                    >
-                      {isDeletingItems.has(item.id) ? (
-                        <div className="p-3 bg-green-50/70 backdrop-blur-md rounded-lg shadow-sm">
-                          <Skeleton className="h-4 w-full mb-2 bg-green-100" />
-                          <Skeleton className="h-4 w-3/4 bg-green-100" />
-                          <div className="flex items-center gap-1 mt-2">
-                            <Skeleton className="h-3 w-3 rounded-full bg-green-100" />
-                            <Skeleton className="h-3 w-24 bg-green-100" />
+              <div className="flex-1 min-h-0 overflow-auto p-4 bg-green-50/30">
+                {isInitialLoading ? (
+                  <div className="space-y-3">
+                    {[...Array(3)].map((_, i) => (
+                      <KnowledgeItemSkeleton key={i} />
+                    ))}
+                  </div>
+                ) : knowledgeBase.length === 0 ? (
+                  <div className="text-center py-10">
+                    <p className="text-green-700">ยังไม่มีข้อมูลในฐานข้อมูล</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {knowledgeBase.map((item) => (
+                      <div
+                        key={`${item.id}-${new Date(item.timestamp).getTime()}`}
+                        className="rounded-lg overflow-hidden"
+                      >
+                        {isDeletingItems.has(item.id) ? (
+                          <div className="p-3 bg-green-50/70 backdrop-blur-md rounded-lg shadow-sm">
+                            <Skeleton className="h-4 w-full mb-2 bg-green-100" />
+                            <Skeleton className="h-4 w-3/4 bg-green-100" />
+                            <div className="flex items-center gap-1 mt-2">
+                              <Skeleton className="h-3 w-3 rounded-full bg-green-100" />
+                              <Skeleton className="h-3 w-24 bg-green-100" />
+                            </div>
                           </div>
-                        </div>
-                      ) : (
-                        <div className="p-3 bg-white/90 backdrop-blur-sm rounded-lg shadow-md relative">
-                          <p className="pr-8 text-green-900">{item.text}</p>
-                          <div className="flex items-center text-xs text-green-700 mt-2">
-                            <Clock className="h-3 w-3 mr-1 text-green-600" />
-                            <span>{formatDate(item.timestamp)}</span>
+                        ) : (
+                          <div className="p-3 bg-white/90 backdrop-blur-sm rounded-lg shadow-md relative">
+                            <p className="pr-8 text-green-900">{item.text}</p>
+                            <div className="flex items-center text-xs text-green-700 mt-2">
+                              <Clock className="h-3 w-3 mr-1 text-green-600" />
+                              <span>{formatDate(item.timestamp)}</span>
+                            </div>
+                            <button
+                              onClick={() => removeKnowledgeItem(item.id)}
+                              className="absolute top-3 right-3"
+                            >
+                              <Trash2 className="h-4 w-4 text-green-600 hover:text-green-800" />
+                            </button>
                           </div>
-                          <button
-                            onClick={() => removeKnowledgeItem(item.id)}
-                            className="absolute top-3 right-3"
-                          >
-                            <Trash2 className="h-4 w-4 text-green-600 hover:text-green-800" />
-                          </button>
+                        )}
+                      </div>
+                    ))}
+
+                    {/* Loading indicator สำหรับ infinite scroll */}
+                    <div ref={observerTarget} className="py-4">
+                      {isLoadingMore && (
+                        <div className="space-y-3">
+                          {[...Array(2)].map((_, i) => (
+                            <KnowledgeItemSkeleton key={i} />
+                          ))}
                         </div>
                       )}
                     </div>
-                  ))}
-
-                  {/* Loading indicator สำหรับ infinite scroll */}
-                  <div ref={observerTarget} className="py-4">
-                    {isLoadingMore && (
-                      <div className="space-y-3">
-                        {[...Array(2)].map((_, i) => (
-                          <KnowledgeItemSkeleton key={i} />
-                        ))}
-                      </div>
-                    )}
                   </div>
-                </div>
-              )}
-            </div>
+                )}
+              </div>
 
-            <div className="mt-auto p-4 bg-white/20 border-t border-white/10">
-              <form onSubmit={handleDatabaseSubmit} className="space-y-3">
-                <Textarea
-                  value={databaseEntry}
-                  onChange={(e) => setDatabaseEntry(e.target.value)}
-                  placeholder="เพิ่มข้อมูลลงในฐานข้อมูลของคุณ..."
-                  className="resize-none bg-white/50 border-white/20"
-                />
-                <Button
-                  type="submit"
-                  className="w-full bg-emerald-500 hover:bg-emerald-600"
-                  disabled={isAddingDocument}
-                >
-                  {isAddingDocument ? (
-                    <div className="h-5 w-5 animate-spin rounded-full border-2 border-white border-t-transparent" />
-                  ) : (
-                    <>
-                      <Plus className="h-4 w-4 mr-2" />
-                      เพิ่มลงในฐานข้อมูล
-                    </>
-                  )}
-                </Button>
-              </form>
-            </div>
-          </Card>
+              <div className="mt-auto p-4 bg-white/20 border-t border-white/10">
+                <form onSubmit={handleDatabaseSubmit} className="space-y-3">
+                  <Textarea
+                    value={databaseEntry}
+                    onChange={(e) => setDatabaseEntry(e.target.value)}
+                    placeholder="เพิ่มข้อมูลลงในฐานข้อมูลของคุณ..."
+                    className="resize-none bg-white/50 border-white/20"
+                  />
+                  <Button
+                    type="submit"
+                    className="w-full bg-emerald-500 hover:bg-emerald-600"
+                    disabled={isAddingDocument}
+                  >
+                    {isAddingDocument ? (
+                      <div className="h-5 w-5 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                    ) : (
+                      <>
+                        <Plus className="h-4 w-4 mr-2" />
+                        เพิ่มลงในฐานข้อมูล
+                      </>
+                    )}
+                  </Button>
+                </form>
+              </div>
+            </Card>
+          )}
         </div>
+        {/* Debug info - อาจเอาออกได้เมื่อเสร็จแล้ว */}
+        <div className="hidden">{`Debug: ActiveTab=${activeTab}, IsDesktop=${isDesktop}`}</div>
       </main>
     </div>
   );

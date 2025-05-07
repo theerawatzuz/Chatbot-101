@@ -1,31 +1,22 @@
-import type React from "react";
 import "./globals.css";
 import type { Metadata } from "next";
-import { Kanit, Inter } from "next/font/google";
+import { Inter, Kanit } from "next/font/google";
+import { cn } from "@/lib/utils";
 import { ThemeProvider } from "@/components/theme-provider";
+
+// Load Inter font for English text
+const inter = Inter({ subsets: ["latin"] });
 
 // Load Kanit font for Thai language
 const kanit = Kanit({
-  weight: ["300", "400", "500", "600"],
+  weight: ["300", "400", "500", "600", "700"],
   subsets: ["thai", "latin"],
   variable: "--font-kanit",
-  display: "swap",
-});
-
-// Load Inter font for English text
-const inter = Inter({
-  subsets: ["latin"],
-  variable: "--font-inter",
-  display: "swap",
 });
 
 export const metadata: Metadata = {
-  title: "Just Easy Chat?",
-  description: "A minimalist RAG chatbot with database integration",
-  generator: "v1",
-  icons: {
-    icon: "./apple-touch-icon.png",
-  },
+  title: "Just Easy Chat",
+  description: "A simple yet powerful chatbot with knowledge base.",
 };
 
 export default function RootLayout({
@@ -34,27 +25,26 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="th" suppressHydrationWarning>
+    <html lang="th">
       <head>
         <meta
           name="viewport"
-          content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no"
+          content="width=device-width, initial-scale=1, maximum-scale=1, minimum-scale=1, user-scalable=no, viewport-fit=cover"
         />
         <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="default" />
         <meta name="theme-color" content="#ffffff" />
-        <meta name="format-detection" content="telephone=no" />
       </head>
       <body
-        className={`${kanit.variable} ${inter.variable} font-kanit ios-viewport ios-safe-padding`}
-        suppressHydrationWarning
+        className={cn(
+          inter.className,
+          "font-kanit",
+          kanit.variable,
+          "ios-viewport ios-safe-padding"
+        )}
       >
-        <ThemeProvider
-          attribute="class"
-          defaultTheme="light"
-          enableSystem
-          disableTransitionOnChange
-        >
+        <ThemeProvider attribute="class" defaultTheme="light">
           {children}
         </ThemeProvider>
       </body>
