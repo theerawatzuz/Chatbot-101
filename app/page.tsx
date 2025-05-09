@@ -714,12 +714,15 @@ export default function ChatbotPage() {
             <Card
               key="chat-card"
               className={cn(
-                "flex flex-col h-[calc(var(--vh, 1vh)*100 - 112px)] md:h-[75vh] backdrop-blur-sm shadow-lg rounded-none md:rounded-2xl overflow-hidden full-height-card",
+                "flex flex-col backdrop-blur-sm shadow-lg rounded-none md:rounded-2xl overflow-hidden full-height-card",
                 "md:flex",
                 transitionClass,
                 chatMode === "gemini"
                   ? "bg-white/80 border border-violet-100"
-                  : "bg-white/80 border border-emerald-100"
+                  : "bg-white/80 border border-emerald-100",
+                isDesktop
+                  ? "h-[75vh]"
+                  : "h-[calc(100vh-112px)] h-[calc(var(--vh,1vh)*100-112px)]"
               )}
             >
               <div
@@ -759,7 +762,7 @@ export default function ChatbotPage() {
                           : "text-violet-500 hover:text-violet-600 border-violet-200"
                       )}
                     >
-                      Gemini
+                      AI
                     </Button>
                     <Button
                       variant={chatMode === "rag" ? "default" : "outline"}
@@ -773,7 +776,7 @@ export default function ChatbotPage() {
                           : "text-emerald-600 hover:text-emerald-700 border-emerald-200"
                       )}
                     >
-                      Gemini + RAG
+                      AI + RAG
                     </Button>
                   </div>
                 </div>
@@ -782,6 +785,11 @@ export default function ChatbotPage() {
               <div
                 className="flex-1 min-h-0 overflow-auto p-6 messages-container chat-content"
                 ref={messagesContainerRef}
+                style={{
+                  height: isDesktop ? "auto" : "calc(100vh - 250px)",
+                  overflowY: "auto",
+                  WebkitOverflowScrolling: "touch",
+                }}
               >
                 <div className="space-y-6">
                   {(chatMode === "gemini" ? geminiMessages : ragMessages)
