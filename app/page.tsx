@@ -77,7 +77,8 @@ export default function ChatbotPage() {
   const [loopNum, setLoopNum] = useState(0);
   const [typingSpeed, setTypingSpeed] = useState(150);
   const inputRef = useRef<HTMLInputElement>(null);
-  const messagesContainerRef = useRef<HTMLDivElement>(null);
+  const geminiMessagesContainerRef = useRef<HTMLDivElement>(null);
+  const ragMessagesContainerRef = useRef<HTMLDivElement>(null);
   const [isKeyboardOpen, setIsKeyboardOpen] = useState(false);
   const [isDesktop, setIsDesktop] = useState(false);
 
@@ -272,12 +273,8 @@ export default function ChatbotPage() {
     setMessages((prev) => [...prev, confirmMessage]);
   };
 
-  // Auto-scroll to bottom of messages
+  // ปรับ useEffect สำหรับการ scroll
   useEffect(() => {
-    // ดึงข้อความปัจจุบันตามโหมด
-    const currentMessages =
-      chatMode === "gemini" ? geminiMessages : ragMessages;
-
     // scroll ลงล่างเมื่อมีข้อความใหม่หรือกำลังโหลด
     if (messagesEndRef.current) {
       messagesEndRef.current.scrollIntoView({
@@ -285,7 +282,17 @@ export default function ChatbotPage() {
         block: "end",
       });
     }
-  }, [geminiMessages, ragMessages, isLoading, isKeyboardOpen]); // เพิ่ม dependency
+
+    // เลื่อนข้อความไปที่ล่างสุดตามโหมดที่กำลังใช้งาน
+    const currentContainerRef =
+      chatMode === "gemini"
+        ? geminiMessagesContainerRef.current
+        : ragMessagesContainerRef.current;
+
+    if (currentContainerRef) {
+      currentContainerRef.scrollTop = currentContainerRef.scrollHeight;
+    }
+  }, [geminiMessages, ragMessages, isLoading, isKeyboardOpen, chatMode]);
 
   // Add document to knowledge base
   const handleDatabaseSubmit = async (e: React.FormEvent) => {
@@ -502,110 +509,106 @@ export default function ChatbotPage() {
     }
   }, []);
 
-  useEffect(() => {
-    // ฟังก์ชันจัดการแป้นพิมพ์บนมือถือ
-    const handleKeyboardVisibility = () => {
-      // ดึงค่าความสูงของหน้าจอและ visual viewport
-      const windowHeight = window.innerHeight;
-      const viewportHeight = window.visualViewport?.height || windowHeight;
+  // ปรับการใช้ ref ในส่วนของ keyboard visibility
+  const handleKeyboardVisibility = () => {
+    // ดึงค่าความสูงของหน้าจอและ visual viewport
+    const windowHeight = window.innerHeight;
+    const viewportHeight = window.visualViewport?.height || windowHeight;
 
-      // คำนวณความสูงของแป้นพิมพ์
-      const keyboardHeight = Math.max(0, windowHeight - viewportHeight);
+    // คำนวณความสูงของแป้นพิมพ์
+    const keyboardHeight = Math.max(0, windowHeight - viewportHeight);
 
-      // ตรวจสอบว่าแป้นพิมพ์เปิดอยู่หรือไม่ (ความสูงมากกว่า 150px)
-      const isKeyboardVisible = keyboardHeight > 150;
+    // ตรวจสอบว่าแป้นพิมพ์เปิดอยู่หรือไม่ (ความสูงมากกว่า 150px)
+    const isKeyboardVisible = keyboardHeight > 150;
 
-      // ตั้งค่าตัวแปร CSS สำหรับความสูงของแป้นพิมพ์
-      document.documentElement.style.setProperty(
-        "--keyboard-height",
-        `${keyboardHeight}px`
-      );
+    // ตั้งค่าตัวแปร CSS สำหรับความสูงของแป้นพิมพ์
+    document.documentElement.style.setProperty(
+      "--keyboard-height",
+      `${keyboardHeight}px`
+    );
 
-      // อัปเดตสถานะและคลาส
-      setIsKeyboardOpen(isKeyboardVisible);
+    // อัปเดตสถานะและคลาส
+    setIsKeyboardOpen(isKeyboardVisible);
 
-      if (isKeyboardVisible) {
-        document.body.classList.add("keyboard-open");
+    if (isKeyboardVisible) {
+      document.body.classList.add("keyboard-open");
 
-        // เลื่อนไปยัง input field หลังจากแป้นพิมพ์เปิด
-        setTimeout(() => {
-          inputRef.current?.scrollIntoView({
+      // เลื่อนไปยัง input field หลังจากแป้นพิมพ์เปิด
+      setTimeout(() => {
+        inputRef.current?.scrollIntoView({
+          behavior: "smooth",
+          block: "center",
+        });
+        // เลื่อนข้อความไปที่ล่างสุดตามโหมดที่กำลังใช้งาน
+        const currentContainerRef =
+          chatMode === "gemini"
+            ? geminiMessagesContainerRef.current
+            : ragMessagesContainerRef.current;
+
+        if (currentContainerRef) {
+          currentContainerRef.scrollTop = currentContainerRef.scrollHeight;
+        }
+      }, 300);
+    } else {
+      document.body.classList.remove("keyboard-open");
+
+      // เลื่อนกลับไปที่ข้อความล่าสุดเมื่อปิดแป้นพิมพ์
+      setTimeout(() => {
+        if (messagesEndRef.current) {
+          messagesEndRef.current.scrollIntoView({
             behavior: "smooth",
-            block: "center",
+            block: "end",
           });
-          // เลื่อนข้อความไปที่ล่างสุด
-          if (messagesContainerRef.current) {
-            messagesContainerRef.current.scrollTop =
-              messagesContainerRef.current.scrollHeight;
-          }
-        }, 300);
-      } else {
-        document.body.classList.remove("keyboard-open");
+        }
+      }, 300);
+    }
+  };
 
-        // เลื่อนกลับไปที่ข้อความล่าสุดเมื่อปิดแป้นพิมพ์
-        setTimeout(() => {
-          if (messagesEndRef.current) {
-            messagesEndRef.current.scrollIntoView({
-              behavior: "smooth",
-              block: "end",
-            });
-          }
-        }, 300);
-      }
-    };
+  // ตั้งค่า event listeners สำหรับการเปลี่ยนแปลงของ visual viewport
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener("resize", handleKeyboardVisibility);
+    window.visualViewport.addEventListener("scroll", handleKeyboardVisibility);
+  }
 
-    // ตั้งค่า event listeners สำหรับการเปลี่ยนแปลงของ visual viewport
+  // ตั้งค่า event listeners สำหรับ input focus/blur
+  const handleInputFocus = () => {
+    // เปิดแป้นพิมพ์จะทำให้เกิด focus event
+    setTimeout(handleKeyboardVisibility, 100);
+  };
+
+  const handleInputBlur = () => {
+    // ปิดแป้นพิมพ์จะทำให้เกิด blur event
+    setTimeout(() => {
+      setIsKeyboardOpen(false);
+      document.body.classList.remove("keyboard-open");
+    }, 100);
+  };
+
+  if (inputRef.current) {
+    inputRef.current.addEventListener("focus", handleInputFocus);
+    inputRef.current.addEventListener("blur", handleInputBlur);
+  }
+
+  // ตรวจสอบครั้งแรก
+  handleKeyboardVisibility();
+
+  // ทำความสะอาด event listeners เมื่อ component unmount
+  useEffect(() => {
     if (window.visualViewport) {
-      window.visualViewport.addEventListener(
+      window.visualViewport.removeEventListener(
         "resize",
         handleKeyboardVisibility
       );
-      window.visualViewport.addEventListener(
+      window.visualViewport.removeEventListener(
         "scroll",
         handleKeyboardVisibility
       );
     }
 
-    // ตั้งค่า event listeners สำหรับ input focus/blur
-    const handleInputFocus = () => {
-      // เปิดแป้นพิมพ์จะทำให้เกิด focus event
-      setTimeout(handleKeyboardVisibility, 100);
-    };
-
-    const handleInputBlur = () => {
-      // ปิดแป้นพิมพ์จะทำให้เกิด blur event
-      setTimeout(() => {
-        setIsKeyboardOpen(false);
-        document.body.classList.remove("keyboard-open");
-      }, 100);
-    };
-
     if (inputRef.current) {
-      inputRef.current.addEventListener("focus", handleInputFocus);
-      inputRef.current.addEventListener("blur", handleInputBlur);
+      inputRef.current.removeEventListener("focus", handleInputFocus);
+      inputRef.current.removeEventListener("blur", handleInputBlur);
     }
-
-    // ตรวจสอบครั้งแรก
-    handleKeyboardVisibility();
-
-    // ทำความสะอาด event listeners เมื่อ component unmount
-    return () => {
-      if (window.visualViewport) {
-        window.visualViewport.removeEventListener(
-          "resize",
-          handleKeyboardVisibility
-        );
-        window.visualViewport.removeEventListener(
-          "scroll",
-          handleKeyboardVisibility
-        );
-      }
-
-      if (inputRef.current) {
-        inputRef.current.removeEventListener("focus", handleInputFocus);
-        inputRef.current.removeEventListener("blur", handleInputBlur);
-      }
-    };
   }, []);
 
   // เพิ่ม useEffect เพื่อตรวจสอบว่าเป็น desktop หรือไม่
@@ -784,7 +787,11 @@ export default function ChatbotPage() {
 
               <div
                 className="flex-1 min-h-0 overflow-auto p-6 messages-container chat-content"
-                ref={messagesContainerRef}
+                ref={
+                  chatMode === "gemini"
+                    ? geminiMessagesContainerRef
+                    : ragMessagesContainerRef
+                }
                 style={{
                   height: isDesktop ? "auto" : "calc(100vh - 250px)",
                   overflowY: "auto",
