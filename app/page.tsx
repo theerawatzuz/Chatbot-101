@@ -723,9 +723,7 @@ export default function ChatbotPage() {
                 chatMode === "gemini"
                   ? "bg-white/80 border border-violet-100"
                   : "bg-white/80 border border-emerald-100",
-                isDesktop
-                  ? "h-[75vh]"
-                  : "h-[calc(100vh-112px)] h-[calc(var(--vh,1vh)*100-112px)]"
+                isDesktop ? "h-[75vh]" : "h-[calc(var(--vh,1vh)*100-112px)]"
               )}
             >
               <div

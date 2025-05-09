@@ -289,7 +289,7 @@ export default function PlannerPage() {
   const monthlyHours = calculateMonthlyHours().toFixed(1);
 
   return (
-    <div className="flex flex-col h-[100vh] h-[calc(var(--vh,1vh)*100)]">
+    <div className="flex flex-col h-[calc(var(--vh,1vh)*100)]">
       {/* Mobile Header */}
       <header className="p-4 bg-gradient-to-r from-blue-500 to-purple-600 text-white flex justify-between items-center sticky top-0 z-10 shadow-md ios-safe-area-top">
         <div>
