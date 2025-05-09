@@ -473,32 +473,25 @@ export default function ChatbotPage() {
     return () => clearTimeout(timer);
   }, [currentTitle, isDeletingItems, loopNum, typingSpeed]);
 
-  // เพิ่ม useEffect เพื่อตรวจจับ iOS และปรับแต่ง viewport
+  // ย้ายการใช้งาน window ไปอยู่ใน useEffect
   useEffect(() => {
-    // ตรวจสอบว่าเป็น iOS หรือไม่
+    if (typeof window === "undefined") return;
+
     const isIOS =
       /iPad|iPhone|iPod/.test(navigator.userAgent) ||
       (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
 
     if (isIOS) {
-      // Fix for iOS full height
       const setIOSHeight = () => {
-        // ขนาดจริงของ viewport ใน iOS
         const vh = window.innerHeight * 0.01;
         document.documentElement.style.setProperty("--vh", `${vh}px`);
-
-        // ปรับขนาดของ HTML และ body elements
         document.documentElement.style.height = `${window.innerHeight}px`;
         document.body.style.height = `${window.innerHeight}px`;
       };
 
-      // รัน function ครั้งแรก
       setIOSHeight();
-
-      // ตั้ง event listeners
       window.addEventListener("resize", setIOSHeight);
       window.addEventListener("orientationchange", () => {
-        // รอให้การหมุนหน้าจอเสร็จสมบูรณ์
         setTimeout(setIOSHeight, 300);
       });
 
@@ -509,121 +502,110 @@ export default function ChatbotPage() {
     }
   }, []);
 
-  // ปรับการใช้ ref ในส่วนของ keyboard visibility
-  const handleKeyboardVisibility = () => {
-    // ดึงค่าความสูงของหน้าจอและ visual viewport
-    const windowHeight = window.innerHeight;
-    const viewportHeight = window.visualViewport?.height || windowHeight;
-
-    // คำนวณความสูงของแป้นพิมพ์
-    const keyboardHeight = Math.max(0, windowHeight - viewportHeight);
-
-    // ตรวจสอบว่าแป้นพิมพ์เปิดอยู่หรือไม่ (ความสูงมากกว่า 150px)
-    const isKeyboardVisible = keyboardHeight > 150;
-
-    // ตั้งค่าตัวแปร CSS สำหรับความสูงของแป้นพิมพ์
-    document.documentElement.style.setProperty(
-      "--keyboard-height",
-      `${keyboardHeight}px`
-    );
-
-    // อัปเดตสถานะและคลาส
-    setIsKeyboardOpen(isKeyboardVisible);
-
-    if (isKeyboardVisible) {
-      document.body.classList.add("keyboard-open");
-
-      // เลื่อนไปยัง input field หลังจากแป้นพิมพ์เปิด
-      setTimeout(() => {
-        inputRef.current?.scrollIntoView({
-          behavior: "smooth",
-          block: "center",
-        });
-        // เลื่อนข้อความไปที่ล่างสุดตามโหมดที่กำลังใช้งาน
-        const currentContainerRef =
-          chatMode === "gemini"
-            ? geminiMessagesContainerRef.current
-            : ragMessagesContainerRef.current;
-
-        if (currentContainerRef) {
-          currentContainerRef.scrollTop = currentContainerRef.scrollHeight;
-        }
-      }, 300);
-    } else {
-      document.body.classList.remove("keyboard-open");
-
-      // เลื่อนกลับไปที่ข้อความล่าสุดเมื่อปิดแป้นพิมพ์
-      setTimeout(() => {
-        if (messagesEndRef.current) {
-          messagesEndRef.current.scrollIntoView({
-            behavior: "smooth",
-            block: "end",
-          });
-        }
-      }, 300);
-    }
-  };
-
-  // ตั้งค่า event listeners สำหรับการเปลี่ยนแปลงของ visual viewport
-  if (window.visualViewport) {
-    window.visualViewport.addEventListener("resize", handleKeyboardVisibility);
-    window.visualViewport.addEventListener("scroll", handleKeyboardVisibility);
-  }
-
-  // ตั้งค่า event listeners สำหรับ input focus/blur
-  const handleInputFocus = () => {
-    // เปิดแป้นพิมพ์จะทำให้เกิด focus event
-    setTimeout(handleKeyboardVisibility, 100);
-  };
-
-  const handleInputBlur = () => {
-    // ปิดแป้นพิมพ์จะทำให้เกิด blur event
-    setTimeout(() => {
-      setIsKeyboardOpen(false);
-      document.body.classList.remove("keyboard-open");
-    }, 100);
-  };
-
-  if (inputRef.current) {
-    inputRef.current.addEventListener("focus", handleInputFocus);
-    inputRef.current.addEventListener("blur", handleInputBlur);
-  }
-
-  // ตรวจสอบครั้งแรก
-  handleKeyboardVisibility();
-
-  // ทำความสะอาด event listeners เมื่อ component unmount
+  // แยกการจัดการ keyboard visibility ไปอยู่ใน useEffect
   useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const handleKeyboardVisibility = () => {
+      const windowHeight = window.innerHeight;
+      const viewportHeight = window.visualViewport?.height || windowHeight;
+      const keyboardHeight = Math.max(0, windowHeight - viewportHeight);
+      const isKeyboardVisible = keyboardHeight > 150;
+
+      document.documentElement.style.setProperty(
+        "--keyboard-height",
+        `${keyboardHeight}px`
+      );
+
+      setIsKeyboardOpen(isKeyboardVisible);
+
+      if (isKeyboardVisible) {
+        document.body.classList.add("keyboard-open");
+        setTimeout(() => {
+          inputRef.current?.scrollIntoView({
+            behavior: "smooth",
+            block: "center",
+          });
+          const currentContainerRef =
+            chatMode === "gemini"
+              ? geminiMessagesContainerRef.current
+              : ragMessagesContainerRef.current;
+
+          if (currentContainerRef) {
+            currentContainerRef.scrollTop = currentContainerRef.scrollHeight;
+          }
+        }, 300);
+      } else {
+        document.body.classList.remove("keyboard-open");
+        setTimeout(() => {
+          if (messagesEndRef.current) {
+            messagesEndRef.current.scrollIntoView({
+              behavior: "smooth",
+              block: "end",
+            });
+          }
+        }, 300);
+      }
+    };
+
+    const handleInputFocus = () => {
+      setTimeout(handleKeyboardVisibility, 100);
+    };
+
+    const handleInputBlur = () => {
+      setTimeout(() => {
+        setIsKeyboardOpen(false);
+        document.body.classList.remove("keyboard-open");
+      }, 100);
+    };
+
     if (window.visualViewport) {
-      window.visualViewport.removeEventListener(
+      window.visualViewport.addEventListener(
         "resize",
         handleKeyboardVisibility
       );
-      window.visualViewport.removeEventListener(
+      window.visualViewport.addEventListener(
         "scroll",
         handleKeyboardVisibility
       );
     }
 
     if (inputRef.current) {
-      inputRef.current.removeEventListener("focus", handleInputFocus);
-      inputRef.current.removeEventListener("blur", handleInputBlur);
+      inputRef.current.addEventListener("focus", handleInputFocus);
+      inputRef.current.addEventListener("blur", handleInputBlur);
     }
-  }, []);
 
-  // เพิ่ม useEffect เพื่อตรวจสอบว่าเป็น desktop หรือไม่
+    handleKeyboardVisibility();
+
+    return () => {
+      if (window.visualViewport) {
+        window.visualViewport.removeEventListener(
+          "resize",
+          handleKeyboardVisibility
+        );
+        window.visualViewport.removeEventListener(
+          "scroll",
+          handleKeyboardVisibility
+        );
+      }
+      if (inputRef.current) {
+        inputRef.current.removeEventListener("focus", handleInputFocus);
+        inputRef.current.removeEventListener("blur", handleInputBlur);
+      }
+    };
+  }, [chatMode]);
+
+  // แยกการตรวจสอบ desktop ไปอยู่ใน useEffect
   useEffect(() => {
+    if (typeof window === "undefined") return;
+
     const checkIfDesktop = () => {
       setIsDesktop(window.innerWidth >= 768);
     };
 
-    // ตรวจสอบครั้งแรก
     checkIfDesktop();
-
-    // ตั้งค่า event listener
     window.addEventListener("resize", checkIfDesktop);
 
-    // cleanup
     return () => {
       window.removeEventListener("resize", checkIfDesktop);
     };
