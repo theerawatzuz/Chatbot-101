@@ -4,7 +4,6 @@ const genAI = new GoogleGenAI({
   apiKey: process.env.GEMINI_API_KEY || "",
 });
 
-// เพิ่ม API Keys pool
 const API_KEYS = [
   process.env.GEMINI_API_KEY || "",
   process.env.GEMINI_API_KEY_1 || "",
